@@ -1,0 +1,30 @@
+import { Controller, Get, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ExecutionsService } from './executions.service';
+
+@ApiTags('executions')
+@Controller('api/v1')
+export class ExecutionsController {
+  constructor(private readonly executionsService: ExecutionsService) {}
+
+  @Get('executions')
+  @ApiOperation({ summary: 'List recent executions across all agents' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  findAll(@Query('limit') limit?: string) {
+    return this.executionsService.findAll(limit ? parseInt(limit) : 50);
+  }
+
+  @Get('executions/metrics')
+  @ApiOperation({ summary: 'Global observability metrics' })
+  getGlobalMetrics() {
+    return this.executionsService.getGlobalMetrics();
+  }
+
+  @Get('providers')
+  @ApiOperation({ summary: 'List all available model and deployment providers with config status' })
+  listProviders() {
+    return {
+      modelProviders: this.executionsService.listAvailableProviders(),
+    };
+  }
+}

@@ -1,0 +1,11 @@
+apiVersion: agentos/v1
+kind: Agent
+metadata:
+  name: custom-writer
+  description: "Drafts and polishes content articles"
+spec:
+  model:
+    provider: ollama
+    name: llama3
+  tools:
+    - slack

@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+:root {
+  --sidebar-width: 240px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* Status badge colors */
+.badge-active    { @apply bg-emerald-500/15 text-emerald-400 border border-emerald-500/30; }
+.badge-inactive  { @apply bg-gray-500/15 text-gray-400 border border-gray-500/30; }
+.badge-deploying { @apply bg-blue-500/15 text-blue-400 border border-blue-500/30; }
+.badge-failed    { @apply bg-red-500/15 text-red-400 border border-red-500/30; }
+.badge-draft     { @apply bg-yellow-500/15 text-yellow-400 border border-yellow-500/30; }
+.badge-pending   { @apply bg-orange-500/15 text-orange-400 border border-orange-500/30; }
+
+/* Card and Metric Card */
+.card, .metric-card {
+  @apply bg-gray-900 border border-gray-800 rounded-xl;
+}
+
+.metric-card {
+  @apply p-5 flex flex-col gap-1;
+}
+
+/* Input */
+.input {
+  @apply bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100
+         placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+         transition-colors w-full;
+}
+
+/* Button variants */
+.btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost {
+  @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+         transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-primary {
+  @apply bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20;
+}
+.btn-secondary {
+  @apply bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700;
+}
+.btn-danger {
+  @apply bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30;
+}
+.btn-ghost {
+  @apply bg-transparent hover:bg-gray-800 text-gray-400 hover:text-gray-100;
+}
+
+/* Table */
+.table-container {
+  @apply overflow-x-auto rounded-xl border border-gray-800;
+}
+table {
+  @apply w-full text-sm;
+}
+thead {
+  @apply bg-gray-800/50;
+}
+th {
+  @apply px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider;
+}
+tbody tr {
+  @apply border-t border-gray-800 hover:bg-gray-800/30 transition-colors;
+}
+td {
+  @apply px-4 py-3 text-gray-300;
+}
+
+/* Page header */
+.page-header {
+  @apply flex items-center justify-between px-8 py-6 border-b border-gray-800;
+}
+.page-title {
+  @apply text-2xl font-bold text-white;
+}
+.page-subtitle {
+  @apply text-sm text-gray-400 mt-0.5;
+}
+.page-content {
+  @apply px-8 py-6 space-y-6;
+}
+
+/* Sidebar nav item */
+.nav-item {
+  @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+         text-gray-400 hover:text-gray-100 hover:bg-gray-800
+         transition-colors cursor-pointer;
+}
+.nav-item-active {
+  @apply text-violet-400 bg-violet-500/10 hover:bg-violet-500/15 hover:text-violet-300;
+}
+
+/* Code / YAML area */
+.code-area {
+  @apply bg-gray-950 border border-gray-800 rounded-lg p-4 font-mono text-sm text-gray-300
+         resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 w-full;
+}
