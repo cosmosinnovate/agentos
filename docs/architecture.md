@@ -10,11 +10,11 @@ AgentOS is composed of three containerized tiers communicating over isolated int
 
 ```mermaid
 graph TD
-    User([Browser Client]) <--> |HTTP / JSON| Frontend[Next.js Frontend Service]
-    Frontend <--> |REST API / v1| Backend[NestJS API Gateway & Engine]
-    Backend <--> |SQL / pg| Database[(PostgreSQL Database)]
-    Backend <--> |Localhost:11434| Ollama[Ollama LLM Engine]
-    Backend <--> |HTTP / JSON| MCP[Model Context Protocol Tools]
+    User([Browser Client]) --> |"HTTP / JSON"| Frontend[Next.js Frontend Service]
+    Frontend --> |"REST API / v1"| Backend[NestJS API Gateway & Engine]
+    Backend --> |"SQL / pg"| Database[(PostgreSQL Database)]
+    Backend --> |"Localhost:11434"| Ollama[Ollama LLM Engine]
+    Backend --> |"JSON-RPC"| MCP[Model Context Protocol Tools]
 ```
 
 - **Client Tier**: A responsive React 19 / Next.js web application utilizing Tailwind CSS v4 and dynamic client-side CSS variable theme overrides.
