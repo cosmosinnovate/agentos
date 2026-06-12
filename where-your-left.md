@@ -20,7 +20,8 @@
    - Injected a blocking pre-render script into [layout.tsx](file:///Users/learnwithcosmos/repos/agentos/frontend/app/layout.tsx)'s `<head>` to prevent Flash of Unstyled Content (FOUC).
    - Created a premium single-switch toggle in [ThemeToggle.tsx](file:///Users/learnwithcosmos/repos/agentos/frontend/components/ThemeToggle.tsx) that switches between Light/Dark mode and aligns with OS system changes dynamically unless a manual choice is saved.
    - Embedded the `ThemeToggle` component directly inside the sidebar footer of [Sidebar.tsx](file:///Users/learnwithcosmos/repos/agentos/frontend/components/Sidebar.tsx).
+8. **Text Visibility Fixes (Light Mode)**:
+   - Replaced static `text-white` classes in dashboard headers, metric values, links, and tracing tags with the dynamic `text-gray-100` class (which correctly maps to `--text-main`, resolving to `#0f172a` in light mode and `#f3f4f6` in dark mode).
 
 ## Next Steps / Required Action
-- Verify the sliding toggle switch at `http://localhost:3000` toggles light/dark themes instantly.
-- The theme dynamically matches your macOS dark mode preference on page load and live changes.
+- Verify the sliding toggle switch and text contrast in Light/Dark/System themes at `http://localhost:3000`.
