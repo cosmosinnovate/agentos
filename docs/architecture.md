@@ -68,8 +68,8 @@ gantt
     
     section Child Spans
     Reasoning / LLM Call (250ms) :done, llm1, 0, 250
-    Tool execution: Web Search (400ms) :crit, active, tool1, 250, 650
-    Sub-Agent Invocation: Writer (350ms) :done, agent1, 650, 1000
+    Tool execution - Web Search (400ms) :crit, active, tool1, 250, 650
+    Sub-Agent Invocation - Writer (350ms) :done, agent1, 650, 1000
     Aggregation / Final LLM (100ms) :llm2, 1000, 1100
 ```
 
