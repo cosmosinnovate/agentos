@@ -2,6 +2,51 @@
 
 :root {
   --sidebar-width: 240px;
+  
+  /* Light theme values */
+  --bg-app: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-hover-dark: #f1f5f9;
+  --border-primary: #e2e8f0;
+  --border-secondary: #cbd5e1;
+  --text-extra-subtle: #94a3b8;
+  --text-subtle: #64748b;
+  --text-muted: #475569;
+  --text-body: #334155;
+  --bg-hover-light: #f1f5f9;
+  --text-secondary: #1e293b;
+  --text-main: #0f172a;
+}
+
+.dark {
+  /* Dark theme values */
+  --bg-app: #030712;
+  --bg-card: #111827;
+  --bg-hover-dark: #1b2330;
+  --border-primary: #1f2937;
+  --border-secondary: #374151;
+  --text-extra-subtle: #4b5563;
+  --text-subtle: #6b7280;
+  --text-muted: #9ca3af;
+  --text-body: #d1d5db;
+  --bg-hover-light: #1f2937;
+  --text-secondary: #e5e7eb;
+  --text-main: #f3f4f6;
+}
+
+@theme {
+  --color-gray-950: var(--bg-app);
+  --color-gray-900: var(--bg-card);
+  --color-gray-850: var(--bg-hover-dark);
+  --color-gray-800: var(--border-primary);
+  --color-gray-700: var(--border-secondary);
+  --color-gray-600: var(--text-extra-subtle);
+  --color-gray-500: var(--text-subtle);
+  --color-gray-400: var(--text-muted);
+  --color-gray-300: var(--text-body);
+  --color-gray-250: var(--bg-hover-light);
+  --color-gray-200: var(--text-secondary);
+  --color-gray-100: var(--text-main);
 }
 
 * {
@@ -10,6 +55,7 @@
 
 html {
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 /* Custom scrollbar */
@@ -21,11 +67,11 @@ html {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: var(--border-secondary);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: var(--text-extra-subtle);
 }
 
 /* Status badge colors */

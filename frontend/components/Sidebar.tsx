@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const nav = [
   { href: '/dashboard',   label: 'Dashboard',    icon: '▦' },
@@ -53,7 +54,8 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-5 py-4 border-t border-gray-800">
+      <div className="px-5 py-4 border-t border-gray-800 space-y-3.5">
+        <ThemeToggle />
         <div className="text-[10px] text-gray-600">
           AgentOS v1.0 · <span className="text-emerald-500">●</span> Operational
         </div>
