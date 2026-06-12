@@ -66,6 +66,7 @@ export const api = {
 
   executions: {
     list: (limit?: number) => request<Execution[]>(`/executions${limit ? `?limit=${limit}` : ''}`),
+    get: (id: string) => request<Execution>(`/executions/${id}`),
     metrics: () => request<GlobalMetrics>('/executions/metrics'),
   },
 
@@ -113,13 +114,14 @@ export interface Execution {
   id: string;
   agentId: string;
   versionId: string;
-  requestPayload: { message: string };
-  responsePayload: { result: string };
+  requestPayload: any;
+  responsePayload: any;
   latencyMs: number;
   tokensPrompt: number;
   tokensCompletion: number;
   totalCost: number;
   status: string;
+  errorMessage?: string;
   model: string;
   createdAt: string;
 }

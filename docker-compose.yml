@@ -34,6 +34,7 @@ services:
       DATABASE_USER: agentos
       DATABASE_PASSWORD: agentos_secret
       MOCK_MODE: "true"
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
       # Add your real provider credentials below:
       # OPENAI_API_KEY: ""
       # ANTHROPIC_API_KEY: ""
@@ -47,6 +48,7 @@ services:
     volumes:
       - ./backend/src:/app/src  # Hot reload in dev
       - /app/node_modules
+      - ./logs:/app/logs
     restart: unless-stopped
 
   # ─── Frontend (Next.js Agent Studio) ────────────────────────────────────────

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api, Agent, AgentVersion, Deployment } from '@/lib/api';
+import { api, Agent, AgentVersion, Deployment, Execution } from '@/lib/api';
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -12,6 +12,7 @@ function StatusBadge({ status }: { status: string }) {
     ACTIVE: 'badge-active', FAILED: 'badge-failed',
     IN_PROGRESS: 'badge-deploying', PENDING: 'badge-pending',
     DRAFT: 'badge-draft', DEPRECATED: 'badge-inactive',
+    SUCCESS: 'badge-active',
   };
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${map[status] || 'badge-inactive'}`}>{status}</span>;
 }
@@ -22,20 +23,23 @@ export default function AgentDetailPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [versions, setVersions] = useState<AgentVersion[]>([]);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
   const [rollingBack, setRollingBack] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'versions' | 'deployments' | 'definition'>('versions');
+  const [activeTab, setActiveTab] = useState<'versions' | 'deployments' | 'definition' | 'executions'>('versions');
 
   useEffect(() => {
     Promise.all([
       api.agents.get(id),
       api.agents.versions.list(id),
       api.deployments.byAgent(id),
-    ]).then(([a, v, d]) => {
+      api.agents.executions(id),
+    ]).then(([a, v, d, e]) => {
       setAgent(a);
       setVersions(v);
       setDeployments(d);
+      setExecutions(e);
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -122,7 +126,7 @@ export default function AgentDetailPage() {
         {/* Tabs */}
         <div>
           <div className="flex gap-1 border-b border-gray-800 mb-4">
-            {(['versions', 'deployments', 'definition'] as const).map((tab) => (
+            {(['versions', 'deployments', 'definition', 'executions'] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-4 py-2 text-sm font-medium capitalize transition-colors
                   ${activeTab === tab ? 'text-violet-400 border-b-2 border-violet-400 -mb-px' : 'text-gray-400 hover:text-gray-200'}`}>
@@ -200,6 +204,47 @@ export default function AgentDetailPage() {
           )}
           {activeTab === 'definition' && !latestVersion && (
             <div className="card p-8 text-center text-gray-500">No definition uploaded yet.</div>
+          )}
+
+          {activeTab === 'executions' && (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Model</th>
+                    <th>Latency</th>
+                    <th>Tokens</th>
+                    <th>Cost</th>
+                    <th>Executed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {executions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center text-gray-500 py-8">
+                        No executions recorded for this agent yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    executions.map((e) => (
+                      <tr 
+                        key={e.id}
+                        onClick={() => router.push(`/executions/${e.id}`)}
+                        className="cursor-pointer hover:bg-gray-850/60 transition-colors"
+                      >
+                        <td><StatusBadge status={e.status} /></td>
+                        <td className="text-xs text-gray-400 font-mono">{e.model || '—'}</td>
+                        <td className="text-xs">{e.latencyMs ? `${e.latencyMs}ms` : '—'}</td>
+                        <td className="text-xs">{(e.tokensPrompt + e.tokensCompletion).toLocaleString()}</td>
+                        <td className="text-xs">${Number(e.totalCost || 0).toFixed(6)}</td>
+                        <td className="text-xs text-gray-500">{new Date(e.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

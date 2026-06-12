@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, GlobalMetrics, Agent, Execution } from '@/lib/api';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 function MetricCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
   return (
@@ -51,6 +52,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [metrics, setMetrics] = useState<GlobalMetrics | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [executions, setExecutions] = useState<Execution[]>([]);
@@ -206,17 +208,24 @@ export default function DashboardPage() {
                 {executions.length === 0 ? (
                   <tr><td colSpan={7} className="text-center text-gray-500 py-8">No executions yet. Try invoking an agent from the <Link href="/playground" className="text-violet-400 hover:underline">Playground</Link>.</td></tr>
                 ) : (
-                  executions.map((e) => (
-                    <tr key={e.id}>
-                      <td className="font-mono text-xs text-gray-400">{e.agentId.substring(0, 8)}…</td>
-                      <td><StatusBadge status={e.status} /></td>
-                      <td className="text-xs text-gray-400">{e.model || '—'}</td>
-                      <td className="text-xs">{e.latencyMs}ms</td>
-                      <td className="text-xs">{(e.tokensPrompt + e.tokensCompletion).toLocaleString()}</td>
-                      <td className="text-xs">${Number(e.totalCost || 0).toFixed(6)}</td>
-                      <td className="text-xs text-gray-500">{new Date(e.createdAt).toLocaleTimeString()}</td>
-                    </tr>
-                  ))
+                  executions.map((e) => {
+                    const agentName = agents.find((a) => a.id === e.agentId)?.name || `${e.agentId.substring(0, 8)}…`;
+                    return (
+                      <tr 
+                        key={e.id} 
+                        onClick={() => router.push(`/executions/${e.id}`)}
+                        className="cursor-pointer hover:bg-gray-850/60 transition-colors"
+                      >
+                        <td className="font-semibold text-violet-400 hover:text-violet-300 transition-colors">{agentName}</td>
+                        <td><StatusBadge status={e.status} /></td>
+                        <td className="text-xs text-gray-400">{e.model || '—'}</td>
+                        <td className="text-xs">{e.latencyMs}ms</td>
+                        <td className="text-xs">{(e.tokensPrompt + e.tokensCompletion).toLocaleString()}</td>
+                        <td className="text-xs">${Number(e.totalCost || 0).toFixed(6)}</td>
+                        <td className="text-xs text-gray-500">{new Date(e.createdAt).toLocaleString()}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

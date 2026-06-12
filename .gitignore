@@ -35,3 +35,6 @@ lerna-debug.log*
 # Docker compose data volumes
 postgres_data/
 agentos-postgres-data/
+
+# Local execution logs
+logs/

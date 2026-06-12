@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ExecutionsService } from './executions.service';
 
@@ -18,6 +18,12 @@ export class ExecutionsController {
   @ApiOperation({ summary: 'Global observability metrics' })
   getGlobalMetrics() {
     return this.executionsService.getGlobalMetrics();
+  }
+
+  @Get('executions/:id')
+  @ApiOperation({ summary: 'Get execution details by ID' })
+  findOne(@Param('id') id: string) {
+    return this.executionsService.findOne(id);
   }
 
   @Get('providers')
