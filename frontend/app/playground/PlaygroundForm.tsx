@@ -22,10 +22,16 @@ export default function PlaygroundForm() {
   const [invoking, setInvoking] = useState(false);
   const [showTrace, setShowTrace] = useState(false);
   const [context, setContext] = useState('');
+  const [loadingSteps, setLoadingSteps] = useState<{ label: string; type: string }[]>([]);
+  const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const loadingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     api.agents.list().then(setAgents);
+    return () => {
+      if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -34,14 +40,59 @@ export default function PlaygroundForm() {
 
   const selectedAgent = agents.find((a) => a.id === selectedId);
 
+  const getSubagentName = (text: string): string | null => {
+    const match = text.match(/delegate(?:\s+the\s+findings)?\s+to\s+([A-Za-z0-9_-]+)/i);
+    return match ? match[1] : null;
+  };
+
+  const getLoadingSteps = (prompt: string, agentName: string) => {
+    const stepsList = [
+      { label: 'Reasoning & planning...', type: 'reasoning' }
+    ];
+
+    // Tool check
+    if (prompt.toLowerCase().includes('search') || prompt.toLowerCase().includes('web')) {
+      stepsList.push({ label: 'Running Tool: web-search...', type: 'tool' });
+    } else if (prompt.toLowerCase().includes('code')) {
+      stepsList.push({ label: 'Running Tool: execute-code...', type: 'tool' });
+    }
+
+    // Delegation check
+    const subagent = getSubagentName(prompt);
+    if (subagent) {
+      stepsList.push({ label: `Delegating to Sub-agent: ${subagent}...`, type: 'subagent' });
+    } else if (agentName.toLowerCase().includes('orchestrator') || prompt.toLowerCase().includes('delegate')) {
+      stepsList.push({ label: 'Delegating to Sub-agent: custom-writer...', type: 'subagent' });
+    }
+
+    stepsList.push({ label: 'Compiling final response...', type: 'compiling' });
+    return stepsList;
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || !selectedId || invoking) return;
     const userMsg = input.trim();
     setInput('');
 
+    const agentName = selectedAgent?.name || '';
+    const currentSteps = getLoadingSteps(userMsg, agentName);
+    setLoadingSteps(currentSteps);
+    setLoadingStepIndex(0);
+
     setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
     setMessages((prev) => [...prev, { role: 'assistant', content: '', loading: true }]);
     setInvoking(true);
+
+    if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
+    let currentIdx = 0;
+    loadingIntervalRef.current = setInterval(() => {
+      if (currentIdx < currentSteps.length - 1) {
+        currentIdx += 1;
+        setLoadingStepIndex(currentIdx);
+      } else {
+        if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
+      }
+    }, 1500);
 
     try {
       const result = await api.agents.invoke(selectedId, { message: userMsg, context: context || undefined });
@@ -55,6 +106,10 @@ export default function PlaygroundForm() {
         { role: 'assistant', content: `Error: ${e.message}` },
       ]);
     } finally {
+      if (loadingIntervalRef.current) {
+        clearInterval(loadingIntervalRef.current);
+        loadingIntervalRef.current = null;
+      }
       setInvoking(false);
     }
   };
@@ -143,10 +198,33 @@ export default function PlaygroundForm() {
                       ? 'bg-violet-600 text-white rounded-tr-sm'
                       : 'bg-gray-800 text-gray-100 rounded-tl-sm'}`}>
                     {msg.loading ? (
-                      <div className="flex gap-1 py-1">
-                        <span className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div className="space-y-2.5 py-1 min-w-[240px]">
+                        {loadingSteps.map((step, index) => {
+                          const isPast = index < loadingStepIndex;
+                          const isActive = index === loadingStepIndex;
+                          if (index > loadingStepIndex) return null;
+
+                          return (
+                            <div
+                              key={index}
+                              className={`flex items-center gap-2 text-xs transition-all duration-300 ${
+                                isPast 
+                                  ? 'text-gray-500 font-medium' 
+                                  : isActive 
+                                    ? 'text-violet-400 font-bold' 
+                                    : ''
+                              }`}
+                            >
+                              <span className="text-sm select-none">{isPast ? '✓' : isActive ? '⚡' : '○'}</span>
+                              <span>{step.label}</span>
+                            </div>
+                          );
+                        })}
+                        <div className="flex gap-1 pt-1 justify-start">
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
                       </div>
                     ) : (
                       <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
