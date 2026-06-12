@@ -60,17 +60,16 @@ When an agent execution is triggered in the **Playground** or via API, the backe
 ```mermaid
 gantt
     title Agent Execution Distributed Spans (Sample Lifecycle)
-    dateFormat  X
-    axisFormat %s
+    dateFormat  YYYY-MM-DD
     
     section Root Trace
-    Root Execution (1100ms)      :active, trace, 0, 1100
+    Root Execution (1100ms)      :active, trace, 2026-06-01, 2026-06-12
     
     section Child Spans
-    Reasoning / LLM Call (250ms) :done, llm1, 0, 250
-    Tool execution - Web Search (400ms) :crit, active, tool1, 250, 650
-    Sub-Agent Invocation - Writer (350ms) :done, agent1, 650, 1000
-    Aggregation / Final LLM (100ms) :llm2, 1000, 1100
+    Reasoning & planning (250ms) :done, llm1, 2026-06-01, 2026-06-03
+    Tool execution - Web Search (400ms) :crit, active, tool1, 2026-06-03, 2026-06-07
+    Sub-Agent Invocation - Writer (350ms) :done, agent1, 2026-06-07, 2026-06-11
+    Aggregation & Final Response (100ms) :llm2, 2026-06-11, 2026-06-12
 ```
 
 ### Telemetry Spans Definition
