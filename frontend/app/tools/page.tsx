@@ -56,7 +56,7 @@ export default function ToolsPage() {
         {/* Add tool form */}
         {showAdd && (
           <div className="card p-5 space-y-4 border-violet-800/30 bg-violet-950/10">
-            <div className="font-medium text-white">Register New Tool</div>
+            <div className="font-medium text-gray-100">Register New Tool</div>
             {error && <div className="text-red-400 text-sm">{error}</div>}
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -91,7 +91,7 @@ export default function ToolsPage() {
 
         {/* Model Providers Status */}
         <div className="card p-5">
-          <div className="font-medium text-white mb-3">Model Provider Status</div>
+          <div className="font-medium text-gray-100 mb-3">Model Provider Status</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {providers.map((p) => (
               <div key={p.name} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm
@@ -117,7 +117,7 @@ export default function ToolsPage() {
               <tbody>
                 {tools.map((t) => (
                   <tr key={t.id}>
-                    <td className="font-medium text-white">{t.name}</td>
+                    <td className="font-medium text-gray-100">{t.name}</td>
                     <td>
                       <span className={`text-xs px-2 py-0.5 rounded font-mono
                         ${t.protocol === 'MCP' ? 'bg-violet-500/15 text-violet-400' : 'bg-blue-500/15 text-blue-400'}`}>

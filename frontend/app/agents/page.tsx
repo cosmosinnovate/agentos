@@ -77,7 +77,7 @@ export default function AgentsPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <Link href={`/agents/${agent.id}`} className="font-semibold text-white hover:text-violet-400 transition-colors truncate">
+                      <Link href={`/agents/${agent.id}`} className="font-semibold text-gray-100 hover:text-violet-400 transition-colors truncate">
                         {agent.name}
                       </Link>
                       <StatusBadge status={agent.status} />

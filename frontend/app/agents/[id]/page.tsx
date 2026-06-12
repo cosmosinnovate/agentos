@@ -104,11 +104,11 @@ export default function AgentDetailPage() {
         <div className="grid grid-cols-3 gap-4">
           <div className="metric-card">
             <div className="text-xs text-gray-500 uppercase tracking-wider">Versions</div>
-            <div className="text-2xl font-bold text-white">{versions.length}</div>
+            <div className="text-2xl font-bold text-gray-100">{versions.length}</div>
           </div>
           <div className="metric-card">
             <div className="text-xs text-gray-500 uppercase tracking-wider">Deployments</div>
-            <div className="text-2xl font-bold text-white">{deployments.length}</div>
+            <div className="text-2xl font-bold text-gray-100">{deployments.length}</div>
           </div>
           <div className="metric-card">
             <div className="text-xs text-gray-500 uppercase tracking-wider">Endpoint</div>

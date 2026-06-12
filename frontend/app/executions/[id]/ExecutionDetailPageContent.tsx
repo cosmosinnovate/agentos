@@ -45,7 +45,7 @@ function SpanRow({ span, totalDuration }: { span: any; totalDuration: number }) 
           <span className="text-gray-500 font-mono text-xs">{isOpen ? '▼' : '▶'}</span>
           <span className="text-lg leading-none">{style.icon}</span>
           <div>
-            <span className="text-sm font-semibold text-white font-mono">{span.name}</span>
+            <span className="text-sm font-semibold text-gray-100 font-mono">{span.name}</span>
             <span className={`text-[10px] ml-2 font-mono uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full border ${style.bg} ${style.border} ${style.text}`}>
               {style.label}
             </span>
@@ -205,24 +205,24 @@ export default function ExecutionDetailPageContent({ id }: ExecutionDetailPageCo
                 {agent.name}
               </Link>
             ) : (
-              <span className="text-sm font-medium text-white block mt-1">{agentName}</span>
+              <span className="text-sm font-medium text-gray-100 block mt-1">{agentName}</span>
             )}
           </div>
           <div className="metric-card">
             <div className="text-[10px] text-gray-500 uppercase tracking-wider">Model</div>
-            <span className="text-sm font-semibold text-white block mt-1 truncate" title={execution.model}>
+            <span className="text-sm font-semibold text-gray-100 block mt-1 truncate" title={execution.model}>
               {execution.model || '—'}
             </span>
           </div>
           <div className="metric-card">
             <div className="text-[10px] text-gray-500 uppercase tracking-wider">Latency</div>
-            <span className="text-sm font-semibold text-white block mt-1">
+            <span className="text-sm font-semibold text-gray-100 block mt-1">
               {execution.latencyMs ? `${execution.latencyMs}ms` : '—'}
             </span>
           </div>
           <div className="metric-card">
             <div className="text-[10px] text-gray-500 uppercase tracking-wider">Tokens / Cost</div>
-            <span className="text-sm font-semibold text-white block mt-1">
+            <span className="text-sm font-semibold text-gray-100 block mt-1">
               {totalTokens > 0 ? `${totalTokens.toLocaleString()} (${execution.tokensPrompt} in / ${execution.tokensCompletion} out)` : '—'}
               {execution.totalCost > 0 && <span className="text-violet-400 text-xs font-medium block mt-0.5">${Number(execution.totalCost).toFixed(6)}</span>}
             </span>

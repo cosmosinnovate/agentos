@@ -24,7 +24,7 @@ export default function Sidebar() {
             OS
           </div>
           <div>
-            <div className="text-white font-bold text-sm leading-none">AgentOS</div>
+            <div className="text-gray-100 font-bold text-sm leading-none">AgentOS</div>
             <div className="text-gray-500 text-[10px] mt-0.5 leading-none">Control Plane</div>
           </div>
         </div>

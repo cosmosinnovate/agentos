@@ -9,7 +9,7 @@ function MetricCard({ label, value, sub, accent }: { label: string; value: strin
   return (
     <div className="metric-card">
       <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</div>
-      <div className={`text-3xl font-bold mt-1 ${accent || 'text-white'}`}>{value}</div>
+      <div className={`text-3xl font-bold mt-1 ${accent || 'text-gray-100'}`}>{value}</div>
       {sub && <div className="text-xs text-gray-500 mt-0.5">{sub}</div>}
     </div>
   );
@@ -113,7 +113,7 @@ export default function DashboardPage() {
           <div className="card p-5 lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="font-semibold text-white">Executions (24h)</div>
+                <div className="font-semibold text-gray-100">Executions (24h)</div>
                 <div className="text-xs text-gray-500 mt-0.5">{metrics?.totalExecutions ?? 0} total</div>
               </div>
               <div className="text-right">
@@ -126,19 +126,19 @@ export default function DashboardPage() {
 
           {/* Cost & tokens */}
           <div className="card p-5 space-y-4">
-            <div className="font-semibold text-white">Token Usage</div>
+            <div className="font-semibold text-gray-100">Token Usage</div>
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Total tokens</span>
-                <span className="text-white font-medium">{(metrics?.totalTokens ?? 0).toLocaleString()}</span>
+                <span className="text-gray-100 font-medium">{(metrics?.totalTokens ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Est. cost</span>
-                <span className="text-white font-medium">${(metrics?.totalCostUsd ?? 0).toFixed(6)}</span>
+                <span className="text-gray-100 font-medium">${(metrics?.totalCostUsd ?? 0).toFixed(6)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Avg latency</span>
-                <span className="text-white font-medium">{metrics?.avgLatencyMs ?? 0}ms</span>
+                <span className="text-gray-100 font-medium">{metrics?.avgLatencyMs ?? 0}ms</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Success rate</span>
@@ -153,7 +153,7 @@ export default function DashboardPage() {
         {/* Agents table */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-white">Agents</h2>
+            <h2 className="font-semibold text-gray-100">Agents</h2>
             <Link href="/agents" className="text-sm text-violet-400 hover:text-violet-300">View all →</Link>
           </div>
           <div className="table-container">
@@ -173,7 +173,7 @@ export default function DashboardPage() {
                 ) : (
                   agents.slice(0, 5).map((a) => (
                     <tr key={a.id}>
-                      <td><Link href={`/agents/${a.id}`} className="font-medium text-white hover:text-violet-400 transition-colors">{a.name}</Link></td>
+                      <td><Link href={`/agents/${a.id}`} className="font-medium text-gray-100 hover:text-violet-400 transition-colors">{a.name}</Link></td>
                       <td><StatusBadge status={a.status} /></td>
                       <td className="text-gray-400 text-xs">{a.owner}</td>
                       <td className="text-gray-500 text-xs">{new Date(a.createdAt).toLocaleDateString()}</td>
@@ -189,7 +189,7 @@ export default function DashboardPage() {
         {/* Recent executions */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-white">Recent Executions</h2>
+            <h2 className="font-semibold text-gray-100">Recent Executions</h2>
           </div>
           <div className="table-container">
             <table>
