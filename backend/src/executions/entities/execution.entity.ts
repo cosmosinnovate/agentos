@@ -16,7 +16,7 @@ export class Execution {
   @Column({ name: 'agent_id' })
   agentId: string;
 
-  @ManyToOne(() => Agent)
+  @ManyToOne(() => Agent, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'agent_id' })
   agent: Agent;
 

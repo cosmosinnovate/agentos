@@ -1,0 +1,11 @@
+apiVersion: agentos/v1
+kind: Agent
+metadata:
+  name: weather-assistant
+  description: "Queries real-time weather information from local MCP links"
+spec:
+  model:
+    provider: ollama
+    name: llama3
+  tools:
+    - local-weather

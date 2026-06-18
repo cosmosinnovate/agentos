@@ -4,6 +4,7 @@ import { ExecutionsController } from './executions.controller';
 import { ExecutionsService } from './executions.service';
 import { Execution } from './entities/execution.entity';
 import { AgentsModule } from '../agents/agents.module';
+import { ToolsModule } from '../tools/tools.module';
 import { ModelProviderFactory } from './providers/model-provider.factory';
 import { MockModelProvider } from './providers/mock.provider';
 import { OpenAiModelProvider } from './providers/openai.provider';
@@ -17,6 +18,7 @@ import { OllamaModelProvider } from './providers/ollama.provider';
   imports: [
     TypeOrmModule.forFeature([Execution]),
     forwardRef(() => AgentsModule),
+    ToolsModule,
   ],
   controllers: [ExecutionsController],
   providers: [

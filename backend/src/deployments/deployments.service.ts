@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AgentDeployment } from './entities/agent-deployment.entity';
@@ -11,6 +11,7 @@ export class DeploymentsService {
   constructor(
     @InjectRepository(AgentDeployment)
     private deploymentRepo: Repository<AgentDeployment>,
+    @Inject(forwardRef(() => AgentsService))
     private agentsService: AgentsService,
     private providerFactory: DeploymentProviderFactory,
   ) {}
@@ -156,5 +157,27 @@ export class DeploymentsService {
 
   listAvailableProviders(): string[] {
     return this.providerFactory.listProviders();
+  }
+
+  async deleteDeploymentsForAgent(agentId: string): Promise<void> {
+    const deployments = await this.deploymentRepo.find({
+      where: { agentId },
+      relations: ['version'],
+    });
+
+    for (const dep of deployments) {
+      if (dep.cloudRunService) {
+        try {
+          const providerName = dep.version?.definition?.spec?.deployment?.provider || 'local';
+          const region = dep.version?.definition?.spec?.deployment?.region;
+          const provider = this.providerFactory.getProviderByName(providerName);
+          await provider.delete(dep.cloudRunService, region);
+        } catch (error) {
+          console.warn(`Failed to clean up cloud deployment ${dep.cloudRunService}: ${error.message}`);
+        }
+      }
+    }
+
+    await this.deploymentRepo.remove(deployments);
   }
 }

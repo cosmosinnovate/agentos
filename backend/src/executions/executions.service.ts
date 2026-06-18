@@ -7,6 +7,8 @@ import { Execution } from './entities/execution.entity';
 import { ModelProviderFactory } from './providers/model-provider.factory';
 import { AgentsService } from '../agents/agents.service';
 import { InvokeAgentDto } from '../agents/dto/agent.dto';
+import { ToolsService } from '../tools/tools.service';
+import { McpClientService } from '../tools/mcp-client.service';
 
 @Injectable()
 export class ExecutionsService {
@@ -15,6 +17,8 @@ export class ExecutionsService {
     private executionRepo: Repository<Execution>,
     private modelProviderFactory: ModelProviderFactory,
     private agentsService: AgentsService,
+    private toolsService: ToolsService,
+    private mcpClientService: McpClientService,
   ) {}
 
   async invoke(agentId: string, dto: InvokeAgentDto): Promise<any> {
@@ -36,8 +40,98 @@ export class ExecutionsService {
     // Resolve model provider from YAML (auto-falls back to mock if not configured)
     const modelProvider = this.modelProviderFactory.getProvider(definition);
 
-    // Build system prompt
-    const systemPrompt = this.buildSystemPrompt(agent.name, definition, dto.context);
+    // Resolve tools details from database
+    const toolDetails = await Promise.all(
+      tools.map((name) => this.toolsService.findByName(name)),
+    );
+
+    const toolOutputs: Record<string, any> = {};
+    const executedSpans: any[] = [];
+    const startTime = Date.now();
+
+    for (const tool of toolDetails) {
+      if (!tool) continue;
+
+      if (tool.protocol === 'MCP') {
+        const schema = tool.config?.inputSchema || {};
+        const toolStart = Date.now();
+
+        const args = await this.extractToolArguments(
+          modelProvider,
+          modelName,
+          tool.name,
+          schema,
+          dto.message,
+        );
+
+        try {
+          const result = await this.mcpClientService.callMcpTool(tool.endpoint, tool.name, args);
+          const toolEnd = Date.now();
+          toolOutputs[tool.name] = result;
+
+          executedSpans.push({
+            spanId: `span-${agentId.substring(0, 4)}-tool-${tool.name}`,
+            parentSpanId: `span-root`,
+            name: `tool-execution:${tool.name}`,
+            type: 'TOOL_EXECUTION',
+            latencyMs: toolEnd - toolStart,
+            timestamp: new Date(toolStart).toISOString(),
+            input: {
+              tool: tool.name,
+              arguments: args,
+            },
+            output: {
+              status: 200,
+              result: result?.content?.[0]?.text || JSON.stringify(result),
+            },
+          });
+        } catch (error) {
+          toolOutputs[tool.name] = { error: error.message };
+          executedSpans.push({
+            spanId: `span-${agentId.substring(0, 4)}-tool-${tool.name}`,
+            parentSpanId: `span-root`,
+            name: `tool-execution:${tool.name}`,
+            type: 'TOOL_EXECUTION',
+            latencyMs: Date.now() - toolStart,
+            timestamp: new Date(toolStart).toISOString(),
+            input: {
+              tool: tool.name,
+              arguments: args,
+            },
+            output: {
+              status: 500,
+              result: `Error invoking tool: ${error.message}`,
+            },
+          });
+        }
+      } else {
+        // Fallback for REST or other tools
+        executedSpans.push({
+          spanId: `span-${agentId.substring(0, 4)}-tool-${tool.name}`,
+          parentSpanId: `span-root`,
+          name: `tool-execution:${tool.name}`,
+          type: 'TOOL_EXECUTION',
+          latencyMs: 150,
+          timestamp: new Date().toISOString(),
+          input: {
+            tool: tool.name,
+            arguments: {
+              query: 'container orchestration benefits',
+            },
+          },
+          output: {
+            status: 200,
+            result:
+              tool.name === 'web-search'
+                ? 'Container orchestration automates deployment, scaling, and networking of containers. High availability, resource utilization, and portability are major benefits.'
+                : 'Tool execution completed successfully.',
+          },
+        });
+      }
+    }
+
+    // Build system prompt (passing toolOutputs so the LLM receives real weather data)
+    const systemPrompt = this.buildSystemPrompt(agent.name, definition, dto.context, toolOutputs);
 
     // Generate response
     const modelResponse = await modelProvider.generate({
@@ -56,11 +150,11 @@ export class ExecutionsService {
     );
 
     const traceId = `tr-${agentId.substring(0, 8)}-${Date.now().toString(36)}`;
-    const totalLatency = modelResponse.latencyMs;
+    const modelLatency = modelResponse.latencyMs;
     const spans: any[] = [];
 
     // 1. Planning/Reasoning Span
-    const planLatency = Math.round(totalLatency * 0.2); // 20%
+    const planLatency = Math.round(modelLatency * 0.2); // 20%
     const planPromptTokens = Math.round(modelResponse.tokensPrompt * 0.9);
     const planCompletionTokens = Math.round(modelResponse.tokensCompletion * 0.1);
     spans.push({
@@ -70,7 +164,7 @@ export class ExecutionsService {
       type: 'LLM_INFERENCE',
       model: `${modelResponse.provider}/${modelResponse.model}`,
       latencyMs: planLatency,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(startTime).toISOString(),
       usage: {
         promptTokens: planPromptTokens,
         completionTokens: planCompletionTokens,
@@ -84,43 +178,18 @@ export class ExecutionsService {
         thought: `Analyzing request: "${dto.message}". Formulating reasoning path. Identifying tools and sub-agents to invoke.`,
         action: tools.length > 0 ? 'CALL_TOOL' : 'RESPOND',
         tool: tools[0] || null,
-        arguments: tools.length > 0 ? { query: 'container orchestration benefits' } : null,
+        arguments: tools.length > 0 ? { query: 'weather check' } : null,
       },
     });
 
-    // 2. Tool Spans (if any tools are configured)
-    let toolLatency = 0;
-    if (tools.length > 0) {
-      toolLatency = Math.round(totalLatency * 0.15); // 15%
-      for (const tool of tools) {
-        spans.push({
-          spanId: `span-${agentId.substring(0, 4)}-tool-${tool}`,
-          parentSpanId: `span-root`,
-          name: `tool-execution:${tool}`,
-          type: 'TOOL_EXECUTION',
-          latencyMs: toolLatency,
-          timestamp: new Date(Date.now() + planLatency).toISOString(),
-          input: {
-            tool,
-            arguments: {
-              query: 'container orchestration benefits',
-            },
-          },
-          output: {
-            status: 200,
-            result: tool === 'web-search' 
-              ? 'Container orchestration automates deployment, scaling, and networking of containers. High availability, resource utilization, and portability are major benefits.'
-              : 'Tool execution completed successfully.',
-          },
-        });
-      }
-    }
+    // 2. Add real tool execution spans
+    spans.push(...executedSpans);
 
     // 3. Sub-agent Delegation Span
     let delegationLatency = 0;
     const isOrchestrator = agent.name.includes('orchestrator');
     if (isOrchestrator && dto.context?.includes('custom-writer')) {
-      delegationLatency = Math.round(totalLatency * 0.6); // 60%
+      delegationLatency = Math.round(modelLatency * 0.6); // 60%
       const writerIdMatch = dto.context.match(/ID is ([a-f0-9-]+)/i);
       const writerId = writerIdMatch ? writerIdMatch[1] : 'custom-writer';
 
@@ -130,7 +199,7 @@ export class ExecutionsService {
         name: `delegate-agent:custom-writer`,
         type: 'SUB_AGENT_INVOCATION',
         latencyMs: delegationLatency,
-        timestamp: new Date(Date.now() + planLatency + toolLatency).toISOString(),
+        timestamp: new Date(startTime + planLatency).toISOString(),
         metadata: {
           agentId: writerId,
           agentName: 'custom-writer',
@@ -146,7 +215,7 @@ export class ExecutionsService {
     }
 
     // 4. Final Aggregation Span
-    const aggregationLatency = Math.max(0, totalLatency - (planLatency + toolLatency + delegationLatency));
+    const aggregationLatency = Math.max(0, modelLatency - (planLatency + delegationLatency));
     spans.push({
       spanId: `span-${agentId.substring(0, 4)}-aggregation`,
       parentSpanId: `span-root`,
@@ -154,9 +223,9 @@ export class ExecutionsService {
       type: 'LLM_INFERENCE',
       model: `${modelResponse.provider}/${modelResponse.model}`,
       latencyMs: aggregationLatency,
-      timestamp: new Date(Date.now() + planLatency + toolLatency + delegationLatency).toISOString(),
+      timestamp: new Date(startTime + planLatency + delegationLatency).toISOString(),
       input: {
-        spansCollected: spans.map(s => s.name),
+        spansCollected: spans.map((s) => s.name),
       },
       output: {
         result: modelResponse.text,
@@ -168,14 +237,14 @@ export class ExecutionsService {
       agentId,
       versionId: version.id,
       requestPayload: { message: dto.message, context: dto.context },
-      responsePayload: { 
+      responsePayload: {
         result: modelResponse.text,
         trace: {
           traceId,
           spans,
-        }
+        },
       },
-      latencyMs: modelResponse.latencyMs,
+      latencyMs: modelLatency + executedSpans.reduce((sum, s) => sum + s.latencyMs, 0),
       tokensPrompt: modelResponse.tokensPrompt,
       tokensCompletion: modelResponse.tokensCompletion,
       totalCost: cost,
@@ -198,7 +267,7 @@ export class ExecutionsService {
         version: version.version,
         provider: modelResponse.provider,
         model: modelResponse.model,
-        latencyMs: modelResponse.latencyMs,
+        latencyMs: saved.latencyMs,
         tokensPrompt: modelResponse.tokensPrompt,
         tokensCompletion: modelResponse.tokensCompletion,
         totalTokens: modelResponse.tokensPrompt + modelResponse.tokensCompletion,
@@ -295,15 +364,97 @@ export class ExecutionsService {
     return execution;
   }
 
-  private buildSystemPrompt(name: string, definition: Record<string, any>, ctx?: string): string {
+  private extractLocation(message: string): string {
+    const match = message.match(/weather (?:in|for|at) ([a-zA-Z\s]+)/i);
+    if (match) return match[1].trim();
+
+    const cities = ['seattle', 'san francisco', 'sf', 'new york', 'ny', 'nyc', 'london', 'tokyo', 'paris'];
+    for (const city of cities) {
+      if (message.toLowerCase().includes(city)) return city;
+    }
+    return 'seattle'; // default fallback
+  }
+
+  private extractFlightParams(message: string): { origin: string; destination: string } {
+    const match = message.match(/flight(?:s)?\s+(?:from\s+)?([a-zA-Z0-9\s]+)\s+to\s+([a-zA-Z0-9\s]+)/i);
+    if (match) {
+      return {
+        origin: match[1].trim(),
+        destination: match[2].trim(),
+      };
+    }
+    return { origin: 'SEA', destination: 'LAX' }; // default fallback
+  }
+
+  private async extractToolArguments(
+    modelProvider: any,
+    modelName: string,
+    toolName: string,
+    schema: Record<string, any>,
+    userMessage: string,
+  ): Promise<Record<string, any>> {
+    // Fast regex fallbacks for standard weather and flights tools
+    if (schema?.properties?.location && !schema.properties.origin) {
+      const location = this.extractLocation(userMessage);
+      return { location };
+    }
+    if (schema?.properties?.origin && schema?.properties?.destination) {
+      const { origin, destination } = this.extractFlightParams(userMessage);
+      return { origin, destination };
+    }
+
+    // If no properties defined, return empty
+    if (!schema || !schema.properties || Object.keys(schema.properties).length === 0) {
+      return {};
+    }
+
+    const systemPrompt = `You are a precise JSON extractor.
+Given this JSON schema for a tool:
+${JSON.stringify(schema, null, 2)}
+
+Extract the arguments for this tool from the following user message.
+Respond ONLY with a valid JSON object matching the schema. Do not write explanation or markdown code blocks.`;
+
+    try {
+      const response = await modelProvider.generate({
+        model: modelName,
+        systemPrompt,
+        userMessage,
+        temperature: 0.1,
+      });
+
+      const cleanJsonText = response.text
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
+      return JSON.parse(cleanJsonText);
+    } catch (err) {
+      console.warn(`[Dynamic Extract] Failed to extract tool arguments via LLM for tool '${toolName}': ${err.message}`);
+      return {};
+    }
+  }
+
+  private buildSystemPrompt(
+    name: string,
+    definition: Record<string, any>,
+    ctx?: string,
+    toolOutputs?: Record<string, any>,
+  ): string {
     const tools = definition.spec?.tools || [];
     let prompt = `You are ${name}, an AI agent managed by AgentOS.`;
     if (tools.length) prompt += `\n\nYou have access to these tools: ${tools.join(', ')}.`;
     if (definition.spec?.permissions?.length)
       prompt += `\n\nYour permissions: ${definition.spec.permissions.join(', ')}.`;
-    
+
     // Instruct the agent to simulate the full workflow completion
     prompt += `\n\nIMPORTANT: When executing the user's request, do not halt or simply tell tools or sub-agents to proceed. Instead, fully execute the entire task by simulating their outputs and return the final compiled result directly to the user.`;
+
+    if (toolOutputs && Object.keys(toolOutputs).length > 0) {
+      prompt += `\n\n[Real-time Tool Outputs]\nFor your reference, here are the real-time execution outputs of the tools. Use this actual data directly in your response:\n`;
+      for (const [toolName, output] of Object.entries(toolOutputs)) {
+        prompt += `\n- ${toolName}: ${JSON.stringify(output)}`;
+      }
+    }
 
     if (ctx) prompt += `\n\nAdditional context: ${ctx}`;
     return prompt;

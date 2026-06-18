@@ -10,7 +10,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const err = await res.json().catch(() => ({ message: res.statusText }));
     throw new Error(err.message || `API error ${res.status}`);
   }
-  return res.json();
+  if (res.status === 204) {
+    return {} as T;
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : ({} as T);
 }
 
 // ─── Agents ──────────────────────────────────────────────────────────────────

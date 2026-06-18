@@ -11,10 +11,6 @@ export class ToolsService {
     private toolRepo: Repository<Tool>,
   ) {}
 
-  async onModuleInit() {
-    await this.seedDefaultTools();
-  }
-
   async create(dto: CreateToolDto): Promise<Tool> {
     const existing = await this.toolRepo.findOne({ where: { name: dto.name } });
     if (existing) throw new ConflictException(`Tool '${dto.name}' already exists`);
@@ -39,50 +35,12 @@ export class ToolsService {
     return tool;
   }
 
+  async findByName(name: string): Promise<Tool | null> {
+    return this.toolRepo.findOne({ where: { name } });
+  }
+
   async remove(id: string): Promise<void> {
     const tool = await this.findOne(id);
     await this.toolRepo.remove(tool);
-  }
-
-  private async seedDefaultTools(): Promise<void> {
-    const defaults = [
-      {
-        name: 'web-search',
-        description: 'Search the web for current information',
-        protocol: 'MCP',
-        endpoint: 'https://tools.agentos.io/mcp/web-search',
-      },
-      {
-        name: 'weather',
-        description: 'Get current weather and forecasts',
-        protocol: 'MCP',
-        endpoint: 'https://tools.agentos.io/mcp/weather',
-      },
-      {
-        name: 'calculator',
-        description: 'Perform mathematical calculations',
-        protocol: 'MCP',
-        endpoint: 'https://tools.agentos.io/mcp/calculator',
-      },
-      {
-        name: 'postgres',
-        description: 'Query PostgreSQL databases',
-        protocol: 'MCP',
-        endpoint: 'https://tools.agentos.io/mcp/postgres',
-      },
-      {
-        name: 'slack',
-        description: 'Send Slack messages and notifications',
-        protocol: 'REST',
-        endpoint: 'https://hooks.slack.com/services',
-      },
-    ];
-
-    for (const tool of defaults) {
-      const existing = await this.toolRepo.findOne({ where: { name: tool.name } });
-      if (!existing) {
-        await this.toolRepo.save(this.toolRepo.create(tool));
-      }
-    }
   }
 }

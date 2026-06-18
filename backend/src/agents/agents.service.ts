@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as yaml from 'js-yaml';
 import { Agent } from './entities/agent.entity';
 import { AgentVersion } from './entities/agent-version.entity';
+import { Execution } from '../executions/entities/execution.entity';
 import { CreateAgentDto, CreateVersionDto } from './dto/agent.dto';
+import { DeploymentsService } from '../deployments/deployments.service';
 
 @Injectable()
 export class AgentsService {
@@ -13,6 +15,10 @@ export class AgentsService {
     private agentRepo: Repository<Agent>,
     @InjectRepository(AgentVersion)
     private versionRepo: Repository<AgentVersion>,
+    @InjectRepository(Execution)
+    private executionRepo: Repository<Execution>,
+    @Inject(forwardRef(() => DeploymentsService))
+    private deploymentsService: DeploymentsService,
   ) {}
 
   async create(dto: CreateAgentDto): Promise<Agent> {
@@ -55,6 +61,8 @@ export class AgentsService {
 
   async remove(id: string): Promise<void> {
     const agent = await this.findOne(id);
+    await this.deploymentsService.deleteDeploymentsForAgent(id);
+    await this.executionRepo.delete({ agentId: id });
     await this.agentRepo.remove(agent);
   }
 

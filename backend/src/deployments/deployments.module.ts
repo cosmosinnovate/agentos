@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DeploymentsController } from './deployments.controller';
 import { DeploymentsService } from './deployments.service';
@@ -13,7 +13,7 @@ import { AzureDeploymentProvider } from './providers/azure.provider';
 @Module({
   imports: [
     TypeOrmModule.forFeature([AgentDeployment]),
-    AgentsModule,
+    forwardRef(() => AgentsModule),
   ],
   controllers: [DeploymentsController],
   providers: [
