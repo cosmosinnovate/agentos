@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agentos -d agentos"]
+      test: [ "CMD-SHELL", "pg_isready -U agentos -d agentos" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -46,7 +46,7 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./backend/src:/app/src  # Hot reload in dev
+      - ./backend/src:/app/src # Hot reload in dev
       - /app/node_modules
       - ./logs:/app/logs
     restart: unless-stopped

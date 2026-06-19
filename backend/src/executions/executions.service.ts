@@ -543,8 +543,15 @@ If you need to query information from a tool to fulfill the request, you MUST in
 \`\`\`
 
           Stop generating immediately after the tool call block. Do not output multiple tool calls in a single turn.
-          If you already have the tool execution result in the message history or do not need to use any tools, simply write your final response to the user directly, without formatting it as a tool call JSON block.
-          CRITICAL: When presenting the final response, answer the user's question directly and concisely in natural human language (plain English text). Never output JSON blocks, JSON schemas, or raw JSON database objects as your final response to the user. Do not thank the user or say "Thank you for the tool output".`;
+          If you already have the tool execution result, formulate your final response by outputting a JSON block with the raw data for developers, followed by a clear, natural language summary for the user.
+          
+          Example final response format:
+          \`\`\`json
+          {
+            "developer_data": { ...raw data... }
+          }
+          \`\`\`
+          Your natural language response goes here.`;
     }
 
     if (ctx) {
