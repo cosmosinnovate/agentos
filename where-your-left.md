@@ -41,10 +41,16 @@
    - Created a zero-dependency Python lifecycle demo runner (`examples/mcp-dynamic-demo/run_demo.py`) demonstrating dynamic MCP tool registration, agent upload, live invocation, trace retrieval, and cascading deletions.
    - Created `examples/mcp-dynamic-demo/README.md` including a sequence diagram mapping the execution loop and illustrating the structural benefits for developer workflows.
 
+8. **State & Memory Architecture RFC**:
+   - Researched conversational context state handling in the playground and API layers (discovered executions are completely stateless backend-side; history is held solely in React state).
+   - Created [state_and_memory_design.md](file:///Users/learnwithcosmos/repos/agentos/docs/state_and_memory_design.md) RFC detailing dual-tier Postgres storage (Short-Term relational chat sessions + Long-Term semantic `pgvector` memories) and Row-Level Security (RLS) tenant isolation.
+   - Pushed the RFC document to GitHub.
+
 ---
 
 # Next Required Actions
 - Start the weather MCP server on port `8088` and execute the new Python demo script (`python examples/mcp-dynamic-demo/run_demo.py`) to verify the full lifecycle flow in the terminal.
 - Verify agent and tool deletions in the frontend UI, ensuring both complete without constraint or JSON parsing errors.
 - Run playground executions and check database traces under the Dashboard page.
+- Review and refine the State & Memory Architecture RFC with the platform engineering team.
 

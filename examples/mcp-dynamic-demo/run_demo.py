@@ -13,7 +13,7 @@ def make_request(url, method="GET", data=None):
     body = None
     if data:
         body = json.dumps(data).encode("utf-8")
-        
+            
     try:
         with urllib.request.urlopen(req, data=body, timeout=10) as response:
             if response.status == 204:
@@ -87,19 +87,19 @@ def main():
     # 3. Upload Agent YAML definition linking the registered tool
     print("\n[Step 3] Uploading YAML version definition...")
     agent_yaml = """apiVersion: agentos/v1
-kind: Agent
-metadata:
-  name: weather-assistant
-spec:
-  model:
-    provider: mock
-    name: mock-model
-  tools:
-    - local-weather
-  deployment:
-    provider: local
-    region: us-east-1
-"""
+            kind: Agent
+            metadata:
+            name: weather-assistant
+            spec:
+            model:
+                provider: mock
+                name: mock-model
+            tools:
+                - local-weather
+            deployment:
+                provider: local
+                region: us-east-1
+            """
     version_payload = {
         "definition": agent_yaml,
         "changelog": "Initial deployment linking local-weather MCP tool"
