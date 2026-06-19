@@ -38,3 +38,5 @@ agentos-postgres-data/
 
 # Local execution logs
 logs/
+
+examples/.env.local

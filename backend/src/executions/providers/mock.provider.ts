@@ -16,35 +16,61 @@ export class MockModelProvider implements IModelProvider {
   }
 
   async generate(request: ModelRequest): Promise<ModelResponse> {
-    this.logger.log(`[MOCK] Generating response for: "${request.userMessage.substring(0, 60)}..."`);
+    const promptText = request.messages && request.messages.length > 0
+      ? request.messages[request.messages.length - 1].content
+      : request.userMessage;
+
+    this.logger.log(`[MOCK] Generating response for: "${promptText.substring(0, 60)}..."`);
     const start = Date.now();
 
     await new Promise((r) => setTimeout(r, 300 + Math.random() * 500));
 
-    const toolsInfo =
-      request.tools?.length > 0
-        ? `\n\nAvailable tools: ${request.tools.join(', ')}.`
-        : '';
+    let text = '';
+    const hasToolResult = request.messages && request.messages.some(
+      (m) => m.role === 'tool' || 
+             (m.role === 'user' && m.name) || 
+             m.content.includes('[Tool Output:') ||
+             m.content.includes('weather report') || 
+             m.content.includes('weather') ||
+             m.content.includes('flight')
+    );
 
-    const text = `[Mock AI Response]
+    if (!hasToolResult && request.tools && request.tools.length > 0) {
+      const firstTool = request.tools[0];
+      const mockArgs: Record<string, any> = firstTool === 'local-weather'
+        ? { location: 'seattle' }
+        : firstTool === 'external-summarizer'
+        ? { topic: 'AI Agent Architecture', points: ['Decoupled control plane', 'Standardized MCP registry', 'OTel span tracing'] }
+        : { query: 'test' };
 
-You asked: "${request.userMessage}"${toolsInfo}
-
-This is a simulated response from AgentOS. In production, this agent would call a real AI model (OpenAI, Anthropic, Vertex AI, etc.) based on its YAML configuration.
-
-To enable real responses, configure your model provider credentials in the backend \`.env\` file and set the appropriate provider in your agent definition:
-
-\`\`\`yaml
-spec:
-  model:
-    provider: openai    # openai | anthropic | vertex | bedrock | azure-openai
-    name: gpt-4o
+      text = `\`\`\`json
+{
+  "type": "tool_call",
+  "name": "${firstTool}",
+  "arguments": ${JSON.stringify(mockArgs, null, 2)}
+}
 \`\`\``;
+    } else if (hasToolResult) {
+      // Find the last tool output in the message history to compile the final summary
+      const lastToolOutput = request.messages && [...request.messages].reverse().find(m => m.content.includes('[Tool Output:'));
+      const outputText = lastToolOutput ? lastToolOutput.content : 'mock tool execution successful';
+      text = `Based on the tool execution result, here is the compiled summary: \n\n${outputText}\n\nThis is a simulated final agent summary response from AgentOS.`;
+    } else {
+      const toolsInfo =
+        request.tools?.length > 0
+          ? `\n\nAvailable tools: ${request.tools.join(', ')}.`
+          : '';
+      text = `[Mock AI Response]
+  
+You asked: "${promptText}"${toolsInfo}
+  
+This is a simulated response from AgentOS. In production, this agent would call a real AI model (OpenAI, Anthropic, Vertex AI, etc.) based on its YAML configuration.`;
+    }
 
     const latencyMs = Date.now() - start;
     return {
       text,
-      tokensPrompt: Math.floor(request.userMessage.length / 4),
+      tokensPrompt: Math.floor(promptText.length / 4),
       tokensCompletion: Math.floor(text.length / 4),
       model: request.model || 'mock-model',
       provider: 'mock',

@@ -25,15 +25,19 @@ export class OpenAiModelProvider implements IModelProvider {
     const client = new OpenAI({ apiKey });
     const start = Date.now();
 
-    const messages: any[] = [];
-    if (request.systemPrompt) {
-      messages.push({ role: 'system', content: request.systemPrompt });
+    const messages = request.messages && request.messages.length > 0 
+      ? request.messages.map(m => ({ role: m.role, content: m.content, ...(m.name ? { name: m.name } : {}) }))
+      : [];
+    if (messages.length === 0) {
+      if (request.systemPrompt) {
+        messages.push({ role: 'system', content: request.systemPrompt });
+      }
+      messages.push({ role: 'user', content: request.userMessage });
     }
-    messages.push({ role: 'user', content: request.userMessage });
 
     const response = await client.chat.completions.create({
       model: request.model || 'gpt-4o',
-      messages,
+      messages: messages as any[],
       temperature: request.temperature ?? 0.7,
       max_tokens: request.maxTokens,
     });

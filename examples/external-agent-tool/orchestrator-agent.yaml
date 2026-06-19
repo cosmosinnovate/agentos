@@ -1,0 +1,11 @@
+apiVersion: agentos/v1
+kind: Agent
+metadata:
+  name: orchestrator-with-external-agent
+  description: "Delegates summarization tasks dynamically to an external Python agent running as a REST tool."
+spec:
+  model:
+    provider: mock
+    name: mock-model
+  tools:
+    - external-summarizer

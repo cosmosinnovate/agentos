@@ -1,10 +1,11 @@
 export interface ModelRequest {
   model: string;
   systemPrompt?: string;
-  userMessage: string;
+  userMessage?: string;
   tools?: string[];
   temperature?: number;
   maxTokens?: number;
+  messages?: { role: string; content: string; name?: string }[];
 }
 
 export interface ModelResponse {

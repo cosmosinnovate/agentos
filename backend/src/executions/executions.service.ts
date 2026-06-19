@@ -9,6 +9,7 @@ import { AgentsService } from '../agents/agents.service';
 import { InvokeAgentDto } from '../agents/dto/agent.dto';
 import { ToolsService } from '../tools/tools.service';
 import { McpClientService } from '../tools/mcp-client.service';
+import { Tool } from '../tools/entities/tool.entity';
 
 @Injectable()
 export class ExecutionsService {
@@ -19,7 +20,7 @@ export class ExecutionsService {
     private agentsService: AgentsService,
     private toolsService: ToolsService,
     private mcpClientService: McpClientService,
-  ) {}
+  ) { }
 
   async invoke(agentId: string, dto: InvokeAgentDto): Promise<any> {
     const agent = await this.agentsService.findOne(agentId);
@@ -44,152 +45,240 @@ export class ExecutionsService {
     const toolDetails = await Promise.all(
       tools.map((name) => this.toolsService.findByName(name)),
     );
+    const resolvedTools = toolDetails.filter((t) => !!t);
 
-    const toolOutputs: Record<string, any> = {};
-    const executedSpans: any[] = [];
+    const spans: any[] = [];
     const startTime = Date.now();
+    let loopCount = 0;
+    const maxLoops = 5;
+    let finalAnswer = '';
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
+    let totalCost = 0;
+    let lastProvider = 'mock';
+    let lastModel = modelName;
 
-    for (const tool of toolDetails) {
-      if (!tool) continue;
+    // Build system prompt containing the schemas of all resolved tools
+    const systemPrompt = this.buildSystemPrompt(agent.name, definition, resolvedTools, dto.context);
 
-      if (tool.protocol === 'MCP') {
-        const schema = tool.config?.inputSchema || {};
-        const toolStart = Date.now();
+    // Initialize messages array for ReAct chat loop
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: dto.message },
+    ];
 
-        const args = await this.extractToolArguments(
-          modelProvider,
-          modelName,
-          tool.name,
-          schema,
-          dto.message,
-        );
+    while (loopCount < maxLoops) {
+      loopCount++;
+      const modelStart = Date.now();
 
-        try {
-          const result = await this.mcpClientService.callMcpTool(tool.endpoint, tool.name, args);
-          const toolEnd = Date.now();
-          toolOutputs[tool.name] = result;
+      // Invoke model provider with full chat history (with prompt sandwiching on loop > 1)
+      const messagesToSend = [...messages];
+      if (loopCount > 1) {
+        messagesToSend.push({
+          role: 'system',
+          content: 'IMPORTANT: Do not thank the user, acknowledge the tool output, or say "Thank you for the tool output". Present the final answer directly and concisely.',
+        });
+      }
 
-          executedSpans.push({
-            spanId: `span-${agentId.substring(0, 4)}-tool-${tool.name}`,
+      const modelResponse = await modelProvider.generate({
+        model: modelName,
+        messages: messagesToSend,
+        tools,
+      });
+
+      const modelLatency = modelResponse.latencyMs;
+      totalPromptTokens += modelResponse.tokensPrompt;
+      totalCompletionTokens += modelResponse.tokensCompletion;
+      lastProvider = modelResponse.provider;
+      lastModel = modelResponse.model;
+
+      const responseText = modelResponse.text;
+
+      // Append assistant response to history
+      messages.push({ role: 'assistant', content: responseText });
+
+      // Check if LLM emitted a JSON tool call
+      const toolCall = this.parseToolCall(responseText);
+
+      if (toolCall) {
+        const toolName = toolCall.name;
+        const toolArgs = toolCall.arguments || {};
+        const tool = resolvedTools.find((t) => t.name === toolName);
+
+        if (tool) {
+          const toolStart = Date.now();
+          let toolResultText = '';
+          let status = 200;
+
+          try {
+            if (tool.protocol === 'MCP') {
+              const result = await this.mcpClientService.callMcpTool(tool.endpoint, tool.name, toolArgs);
+              toolResultText = result?.content?.[0]?.text || JSON.stringify(result);
+            } else if (tool.protocol === 'REST') {
+              const response = await fetch(tool.endpoint, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(toolArgs),
+              });
+              if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`REST server returned status ${response.status}: ${errorText}`);
+              }
+              const data = await response.json();
+              toolResultText = typeof data === 'string' ? data : (data.result || data.output || JSON.stringify(data));
+            } else {
+              // Fallback
+              toolResultText = tool.name === 'web-search'
+                ? 'Container orchestration automates deployment, scaling, and networking of containers. High availability, resource utilization, and portability are major benefits.'
+                : 'Tool execution completed successfully.';
+            }
+          } catch (error) {
+            status = 500;
+            toolResultText = `Error invoking tool: ${error.message}`;
+          }
+
+          const toolLatency = Date.now() - toolStart;
+
+          // Record a tool execution span
+          spans.push({
+            spanId: `span-${agentId.substring(0, 4)}-tool-${tool.name}-${loopCount}`,
             parentSpanId: `span-root`,
             name: `tool-execution:${tool.name}`,
             type: 'TOOL_EXECUTION',
-            latencyMs: toolEnd - toolStart,
+            latencyMs: toolLatency,
             timestamp: new Date(toolStart).toISOString(),
             input: {
               tool: tool.name,
-              arguments: args,
+              arguments: toolArgs,
             },
             output: {
-              status: 200,
-              result: result?.content?.[0]?.text || JSON.stringify(result),
+              status,
+              result: toolResultText,
             },
           });
-        } catch (error) {
-          toolOutputs[tool.name] = { error: error.message };
-          executedSpans.push({
-            spanId: `span-${agentId.substring(0, 4)}-tool-${tool.name}`,
+
+          // Record an LLM inference reasoning span for this step
+          spans.push({
+            spanId: `span-${agentId.substring(0, 4)}-reasoning-${loopCount}`,
             parentSpanId: `span-root`,
-            name: `tool-execution:${tool.name}`,
-            type: 'TOOL_EXECUTION',
-            latencyMs: Date.now() - toolStart,
-            timestamp: new Date(toolStart).toISOString(),
+            name: `llm-reasoning:step-${loopCount}`,
+            type: 'LLM_INFERENCE',
+            model: `${modelResponse.provider}/${modelResponse.model}`,
+            latencyMs: modelLatency,
+            timestamp: new Date(modelStart).toISOString(),
+            usage: {
+              promptTokens: modelResponse.tokensPrompt,
+              completionTokens: modelResponse.tokensCompletion,
+              cachedPromptTokens: 0,
+            },
             input: {
-              tool: tool.name,
-              arguments: args,
+              prompt: messages[messages.length - 2].content, // user query or previous tool response
+              systemPrompt,
             },
             output: {
-              status: 500,
-              result: `Error invoking tool: ${error.message}`,
+              thought: `Parsed tool call for tool "${toolName}" with arguments: ${JSON.stringify(toolArgs)}`,
+              action: 'CALL_TOOL',
+              tool: toolName,
+              arguments: toolArgs,
+            },
+          });
+
+          // Feed tool execution output back to LLM
+          messages.push({
+            role: 'user',
+            content: `[Tool Output: ${tool.name}]\n${toolResultText}\n\nPresent the final response directly to the user based on the above tool output. Do not thank the user, acknowledge the tool output, or use conversational filler; simply present the answer directly.`,
+            name: tool.name,
+          });
+
+        } else {
+          // Tool not found
+          const toolResultText = `Error: Tool '${toolName}' is not defined or not permitted for this agent.`;
+          messages.push({
+            role: 'user',
+            content: `[Tool Output: ${toolName}] ${toolResultText}`,
+            name: toolName,
+          });
+
+          // Push reasoning span with failure
+          spans.push({
+            spanId: `span-${agentId.substring(0, 4)}-reasoning-${loopCount}`,
+            parentSpanId: `span-root`,
+            name: `llm-reasoning:step-${loopCount}`,
+            type: 'LLM_INFERENCE',
+            model: `${modelResponse.provider}/${modelResponse.model}`,
+            latencyMs: modelLatency,
+            timestamp: new Date(modelStart).toISOString(),
+            usage: {
+              promptTokens: modelResponse.tokensPrompt,
+              completionTokens: modelResponse.tokensCompletion,
+              cachedPromptTokens: 0,
+            },
+            input: {
+              prompt: messages[messages.length - 2].content,
+              systemPrompt,
+            },
+            output: {
+              thought: `Tool "${toolName}" requested but not found in allowed tools list.`,
+              action: 'CALL_TOOL',
+              tool: toolName,
+              arguments: toolArgs,
             },
           });
         }
       } else {
-        // Fallback for REST or other tools
-        executedSpans.push({
-          spanId: `span-${agentId.substring(0, 4)}-tool-${tool.name}`,
+        // No tool call detected, this response is the final answer
+        finalAnswer = responseText;
+
+        // Record final LLM reasoning / aggregation span
+        spans.push({
+          spanId: `span-${agentId.substring(0, 4)}-reasoning-${loopCount}`,
           parentSpanId: `span-root`,
-          name: `tool-execution:${tool.name}`,
-          type: 'TOOL_EXECUTION',
-          latencyMs: 150,
-          timestamp: new Date().toISOString(),
+          name: `llm-reasoning:step-${loopCount}-final`,
+          type: 'LLM_INFERENCE',
+          model: `${modelResponse.provider}/${modelResponse.model}`,
+          latencyMs: modelLatency,
+          timestamp: new Date(modelStart).toISOString(),
+          usage: {
+            promptTokens: modelResponse.tokensPrompt,
+            completionTokens: modelResponse.tokensCompletion,
+            cachedPromptTokens: 0,
+          },
           input: {
-            tool: tool.name,
-            arguments: {
-              query: 'container orchestration benefits',
-            },
+            prompt: messages[messages.length - 2].content,
+            systemPrompt,
           },
           output: {
-            status: 200,
-            result:
-              tool.name === 'web-search'
-                ? 'Container orchestration automates deployment, scaling, and networking of containers. High availability, resource utilization, and portability are major benefits.'
-                : 'Tool execution completed successfully.',
+            result: finalAnswer,
           },
         });
+
+        break;
       }
     }
 
-    // Build system prompt (passing toolOutputs so the LLM receives real weather data)
-    const systemPrompt = this.buildSystemPrompt(agent.name, definition, dto.context, toolOutputs);
+    if (!finalAnswer && messages.length > 0) {
+      finalAnswer = messages[messages.length - 1].content;
+    }
 
-    // Generate response
-    const modelResponse = await modelProvider.generate({
-      model: modelName,
-      systemPrompt,
-      userMessage: dto.message,
-      tools,
-    });
+    finalAnswer = this.formatIfJson(finalAnswer);
 
-    // Estimate cost
-    const cost = this.modelProviderFactory.estimateCost(
-      modelResponse.provider,
-      modelResponse.model,
-      modelResponse.tokensPrompt,
-      modelResponse.tokensCompletion,
+    // Accumulate total cost
+    totalCost = this.modelProviderFactory.estimateCost(
+      lastProvider,
+      lastModel,
+      totalPromptTokens,
+      totalCompletionTokens,
     );
 
     const traceId = `tr-${agentId.substring(0, 8)}-${Date.now().toString(36)}`;
-    const modelLatency = modelResponse.latencyMs;
-    const spans: any[] = [];
+    const totalLatencyMs = Date.now() - startTime;
 
-    // 1. Planning/Reasoning Span
-    const planLatency = Math.round(modelLatency * 0.2); // 20%
-    const planPromptTokens = Math.round(modelResponse.tokensPrompt * 0.9);
-    const planCompletionTokens = Math.round(modelResponse.tokensCompletion * 0.1);
-    spans.push({
-      spanId: `span-${agentId.substring(0, 4)}-reasoning`,
-      parentSpanId: `span-root`,
-      name: `llm-reasoning:planning`,
-      type: 'LLM_INFERENCE',
-      model: `${modelResponse.provider}/${modelResponse.model}`,
-      latencyMs: planLatency,
-      timestamp: new Date(startTime).toISOString(),
-      usage: {
-        promptTokens: planPromptTokens,
-        completionTokens: planCompletionTokens,
-        cachedPromptTokens: 0,
-      },
-      input: {
-        prompt: dto.message,
-        systemPrompt,
-      },
-      output: {
-        thought: `Analyzing request: "${dto.message}". Formulating reasoning path. Identifying tools and sub-agents to invoke.`,
-        action: tools.length > 0 ? 'CALL_TOOL' : 'RESPOND',
-        tool: tools[0] || null,
-        arguments: tools.length > 0 ? { query: 'weather check' } : null,
-      },
-    });
-
-    // 2. Add real tool execution spans
-    spans.push(...executedSpans);
-
-    // 3. Sub-agent Delegation Span
-    let delegationLatency = 0;
+    // Sub-agent Delegation Span simulation for Orchestrator Demo
     const isOrchestrator = agent.name.includes('orchestrator');
     if (isOrchestrator && dto.context?.includes('custom-writer')) {
-      delegationLatency = Math.round(modelLatency * 0.6); // 60%
+      const delegationLatency = Math.round(totalLatencyMs * 0.4);
       const writerIdMatch = dto.context.match(/ID is ([a-f0-9-]+)/i);
       const writerId = writerIdMatch ? writerIdMatch[1] : 'custom-writer';
 
@@ -199,7 +288,7 @@ export class ExecutionsService {
         name: `delegate-agent:custom-writer`,
         type: 'SUB_AGENT_INVOCATION',
         latencyMs: delegationLatency,
-        timestamp: new Date(startTime + planLatency).toISOString(),
+        timestamp: new Date(startTime).toISOString(),
         metadata: {
           agentId: writerId,
           agentName: 'custom-writer',
@@ -209,47 +298,29 @@ export class ExecutionsService {
           context: 'Use a professional tone and double check spelling.',
         },
         output: {
-          result: modelResponse.text,
+          result: finalAnswer,
         },
       });
     }
 
-    // 4. Final Aggregation Span
-    const aggregationLatency = Math.max(0, modelLatency - (planLatency + delegationLatency));
-    spans.push({
-      spanId: `span-${agentId.substring(0, 4)}-aggregation`,
-      parentSpanId: `span-root`,
-      name: `llm-reasoning:aggregation`,
-      type: 'LLM_INFERENCE',
-      model: `${modelResponse.provider}/${modelResponse.model}`,
-      latencyMs: aggregationLatency,
-      timestamp: new Date(startTime + planLatency + delegationLatency).toISOString(),
-      input: {
-        spansCollected: spans.map((s) => s.name),
-      },
-      output: {
-        result: modelResponse.text,
-      },
-    });
-
-    // Persist execution record
+    // Save execution trace to DB
     const execution = this.executionRepo.create({
       agentId,
       versionId: version.id,
       requestPayload: { message: dto.message, context: dto.context },
       responsePayload: {
-        result: modelResponse.text,
+        result: finalAnswer,
         trace: {
           traceId,
           spans,
         },
       },
-      latencyMs: modelLatency + executedSpans.reduce((sum, s) => sum + s.latencyMs, 0),
-      tokensPrompt: modelResponse.tokensPrompt,
-      tokensCompletion: modelResponse.tokensCompletion,
-      totalCost: cost,
+      latencyMs: totalLatencyMs,
+      tokensPrompt: totalPromptTokens,
+      tokensCompletion: totalCompletionTokens,
+      totalCost,
       status: 'SUCCESS',
-      model: `${modelResponse.provider}/${modelResponse.model}`,
+      model: `${lastProvider}/${lastModel}`,
     });
 
     const saved = await this.executionRepo.save(execution);
@@ -259,19 +330,19 @@ export class ExecutionsService {
 
     return {
       executionId: saved.id,
-      result: modelResponse.text,
+      result: finalAnswer,
       trace: {
         traceId,
         agentId,
         agentName: agent.name,
         version: version.version,
-        provider: modelResponse.provider,
-        model: modelResponse.model,
+        provider: lastProvider,
+        model: lastModel,
         latencyMs: saved.latencyMs,
-        tokensPrompt: modelResponse.tokensPrompt,
-        tokensCompletion: modelResponse.tokensCompletion,
-        totalTokens: modelResponse.tokensPrompt + modelResponse.tokensCompletion,
-        estimatedCostUsd: parseFloat(cost.toFixed(6)),
+        tokensPrompt: totalPromptTokens,
+        tokensCompletion: totalCompletionTokens,
+        totalTokens: totalPromptTokens + totalCompletionTokens,
+        estimatedCostUsd: parseFloat(totalCost.toFixed(6)),
         timestamp: saved.createdAt,
         spans,
       },
@@ -437,27 +508,85 @@ Respond ONLY with a valid JSON object matching the schema. Do not write explanat
   private buildSystemPrompt(
     name: string,
     definition: Record<string, any>,
+    resolvedTools: Tool[],
     ctx?: string,
-    toolOutputs?: Record<string, any>,
   ): string {
-    const tools = definition.spec?.tools || [];
     let prompt = `You are ${name}, an AI agent managed by AgentOS.`;
-    if (tools.length) prompt += `\n\nYou have access to these tools: ${tools.join(', ')}.`;
-    if (definition.spec?.permissions?.length)
-      prompt += `\n\nYour permissions: ${definition.spec.permissions.join(', ')}.`;
 
-    // Instruct the agent to simulate the full workflow completion
-    prompt += `\n\nIMPORTANT: When executing the user's request, do not halt or simply tell tools or sub-agents to proceed. Instead, fully execute the entire task by simulating their outputs and return the final compiled result directly to the user.`;
-
-    if (toolOutputs && Object.keys(toolOutputs).length > 0) {
-      prompt += `\n\n[Real-time Tool Outputs]\nFor your reference, here are the real-time execution outputs of the tools. Use this actual data directly in your response:\n`;
-      for (const [toolName, output] of Object.entries(toolOutputs)) {
-        prompt += `\n- ${toolName}: ${JSON.stringify(output)}`;
+    if (resolvedTools.length > 0) {
+      prompt += `\n\nYou have access to the following tools:`;
+      for (const tool of resolvedTools) {
+        const schema = tool.config?.inputSchema || {};
+        prompt += `\n\n- **${tool.name}**: ${tool.description || 'No description'}\n  Input Schema: ${JSON.stringify(schema, null, 2)}`;
       }
+
+      prompt += `\n\n### Tool Calling Protocol
+If you need to query information from a tool to fulfill the request, you MUST invoke it by outputting a JSON block in the following format:
+
+\`\`\`json
+{
+  "type": "tool_call",
+  "name": "<tool_name>",
+  "arguments": {
+    "<arg_name>": <arg_value>
+  }
+}
+\`\`\`
+
+          Stop generating immediately after the tool call block. Do not output multiple tool calls in a single turn.
+          If you already have the tool execution result in the message history or do not need to use any tools, simply write your final response to the user directly, without formatting it as a tool call JSON block.
+          CRITICAL: When presenting the final response, answer the user's question directly and concisely in natural human language (plain English text). Never output JSON blocks, JSON schemas, or raw JSON database objects as your final response to the user. Do not thank the user or say "Thank you for the tool output".`;
     }
 
-    if (ctx) prompt += `\n\nAdditional context: ${ctx}`;
+    if (ctx) {
+      prompt += `\n\nAdditional context: ${ctx}`;
+    }
+
     return prompt;
+  }
+
+  parseToolCall(text: string): { type: string; name: string; arguments: Record<string, any> } | null {
+    if (!text) return null;
+    try {
+      const jsonRegex = /(?:```(?:json)?\s*)?(\{\s*"type"\s*:\s*"tool_call"[\s\S]*?\})(?:\s*```)?/i;
+      const match = text.match(jsonRegex);
+      if (match) {
+        const parsed = JSON.parse(match[1]);
+        if (parsed && parsed.type === 'tool_call' && typeof parsed.name === 'string') {
+          return parsed;
+        }
+      }
+    } catch (err) {
+      // Silent catch
+    }
+
+    try {
+      const typeIndex = text.indexOf('"type"');
+      if (typeIndex !== -1) {
+        const startIndex = text.lastIndexOf('{', typeIndex);
+        if (startIndex !== -1) {
+          let braceCount = 0;
+          for (let i = startIndex; i < text.length; i++) {
+            if (text[i] === '{') braceCount++;
+            else if (text[i] === '}') {
+              braceCount--;
+              if (braceCount === 0) {
+                const candidate = text.substring(startIndex, i + 1);
+                const parsed = JSON.parse(candidate);
+                if (parsed && parsed.type === 'tool_call' && typeof parsed.name === 'string') {
+                  return parsed;
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Silent catch
+    }
+
+    return null;
   }
 
   private writeLocalLogFile(agentName: string, execution: Execution) {
@@ -477,5 +606,129 @@ Respond ONLY with a valid JSON object matching the schema. Do not write explanat
     } catch (err) {
       console.error(`Failed to write local execution log file for ${agentName}:`, err.message);
     }
+  }
+
+  private formatIfJson(text: string): string {
+    if (!text) return text;
+
+    // Find all valid JSON blocks and their ranges in the text
+    const jsonRanges: { start: number; end: number; parsed: any }[] = [];
+    let braceCount = 0;
+    let startIndex = -1;
+
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '{') {
+        if (braceCount === 0) {
+          startIndex = i;
+        }
+        braceCount++;
+      } else if (text[i] === '}') {
+        if (braceCount > 0) {
+          braceCount--;
+          if (braceCount === 0 && startIndex !== -1) {
+            const candidate = text.substring(startIndex, i + 1);
+            try {
+              const parsed = JSON.parse(candidate);
+              if (parsed && typeof parsed === 'object') {
+                jsonRanges.push({ start: startIndex, end: i + 1, parsed });
+              }
+            } catch {
+              // Ignore invalid JSON
+            }
+          }
+        }
+      }
+    }
+
+    if (jsonRanges.length === 0) {
+      return text;
+    }
+
+    // Look for a weather data object among the parsed JSON blocks
+    // A weather data object typically has 'temperature' or 'temp', 'conditions' or 'condition'
+    const weatherDataObj = jsonRanges.find(range => 
+      range.parsed &&
+      typeof range.parsed === 'object' && 
+      !range.parsed.properties && // not a schema
+      range.parsed.type !== 'object' && // not a schema definition
+      (range.parsed.hasOwnProperty('temperature') || range.parsed.hasOwnProperty('temp') || range.parsed.hasOwnProperty('conditions') || range.parsed.hasOwnProperty('condition'))
+    );
+
+    if (weatherDataObj) {
+      const weatherData = weatherDataObj.parsed;
+      const temp = weatherData.temperature ?? weatherData.temp;
+      const cond = weatherData.conditions ?? weatherData.condition;
+      const humidity = weatherData.humidity;
+      const wind = weatherData.wind;
+
+      let windStr = '';
+      if (wind) {
+        if (typeof wind === 'object') {
+          const speed = wind.speed ?? wind.wind_speed;
+          const dir = wind.direction ?? wind.wind_deg ?? wind.deg;
+          if (speed !== undefined && dir !== undefined) {
+            windStr = `${speed} mph from ${dir}`;
+          } else if (speed !== undefined) {
+            windStr = `${speed} mph`;
+          } else if (dir !== undefined) {
+            windStr = `from ${dir}`;
+          }
+        } else {
+          windStr = String(wind);
+        }
+      }
+
+      let tempDisplay = '';
+      if (temp !== undefined) {
+        tempDisplay = String(temp);
+        if (!tempDisplay.includes('°')) {
+          tempDisplay = `${tempDisplay}°F`;
+        }
+      }
+
+      let humidityDisplay = '';
+      if (humidity !== undefined) {
+        humidityDisplay = String(humidity);
+        if (!humidityDisplay.includes('%')) {
+          humidityDisplay = `${humidityDisplay}%`;
+        }
+      }
+
+      const tempStr = tempDisplay ? `with a temperature of ${tempDisplay}` : '';
+      const condStr = cond ? `The weather is currently ${cond.toLowerCase()}` : 'The weather';
+      const windPart = windStr ? ` The wind is blowing at ${windStr}.` : '';
+      const humPart = humidityDisplay ? ` The humidity is at ${humidityDisplay}.` : '';
+
+      return `${condStr} ${tempStr}.${windPart}${humPart}`.replace(/\s+/g, ' ').trim();
+    }
+
+    // If we did not find a weather data object to format directly, but we found other JSON objects
+    // (such as a tool schema or tool call JSON block) mixed with natural language,
+    // we should strip all the JSON objects (and any markdown code fences surrounding them)
+    // to leave only the natural language response.
+    if (jsonRanges.length > 0) {
+      let cleanedText = '';
+      let lastIndex = 0;
+      for (const range of jsonRanges) {
+        cleanedText += text.substring(lastIndex, range.start);
+        lastIndex = range.end;
+      }
+      cleanedText += text.substring(lastIndex);
+
+      // Clean up markdown code fences (```json or ```) that might be left over
+      cleanedText = cleanedText
+        .replace(/```json/gi, '')
+        .replace(/```/g, '')
+        .replace(/^\s*\n/gm, '') // Remove empty lines
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // If we are left with nothing or very short filler text, return original, otherwise return cleaned
+      if (cleanedText.length > 10) {
+        return cleanedText;
+      }
+    }
+
+    return text;
   }
 }

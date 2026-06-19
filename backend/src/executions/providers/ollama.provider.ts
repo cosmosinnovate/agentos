@@ -21,11 +21,15 @@ export class OllamaModelProvider implements IModelProvider {
     const modelName = request.model || 'llama3';
     const start = Date.now();
 
-    const messages: any[] = [];
-    if (request.systemPrompt) {
-      messages.push({ role: 'system', content: request.systemPrompt });
+    const messages = request.messages && request.messages.length > 0 
+      ? request.messages.map(m => ({ role: m.role, content: m.content, ...(m.name ? { name: m.name } : {}) }))
+      : [];
+    if (messages.length === 0) {
+      if (request.systemPrompt) {
+        messages.push({ role: 'system', content: request.systemPrompt });
+      }
+      messages.push({ role: 'user', content: request.userMessage });
     }
-    messages.push({ role: 'user', content: request.userMessage });
 
     try {
       const response = await fetch(`${baseUrl}/api/chat`, {
