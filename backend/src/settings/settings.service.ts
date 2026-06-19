@@ -79,4 +79,9 @@ export class SettingsService {
     const configs = await this.providerConfigRepo.find({ select: ['providerName'] });
     return configs.map(c => c.providerName);
   }
+
+  async deleteApiKey(providerName: string): Promise<void> {
+    await this.providerConfigRepo.delete({ providerName });
+    this.logger.log(`API key deleted for provider: ${providerName}`);
+  }
 }

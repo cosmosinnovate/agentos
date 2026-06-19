@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 
 @Controller('api/v1/settings')
@@ -20,6 +20,12 @@ export class SettingsController {
       throw new Error('API Key is required');
     }
     await this.settingsService.setApiKey(name, apiKey);
+    return { success: true };
+  }
+
+  @Delete('providers/:name')
+  async deleteProviderApiKey(@Param('name') name: string) {
+    await this.settingsService.deleteApiKey(name);
     return { success: true };
   }
 }

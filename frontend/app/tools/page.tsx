@@ -54,6 +54,44 @@ export default function ToolsPage() {
     }
   };
 
+  // Provider config states
+  const [selectedProvider, setSelectedProvider] = useState<ProviderInfo | null>(null);
+  const [inputKey, setInputKey] = useState('');
+  const [savingKey, setSavingKey] = useState(false);
+
+  const handleSaveApiKey = async () => {
+    if (!selectedProvider || !inputKey) return;
+    setSavingKey(true);
+    try {
+      await api.settings.providers.set(selectedProvider.name, inputKey);
+      const p = await api.providers.list();
+      setProviders(p.modelProviders);
+      setSelectedProvider(p.modelProviders.find(x => x.name === selectedProvider.name) || null);
+      setInputKey('');
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
+  const handleDeleteApiKey = async () => {
+    if (!selectedProvider) return;
+    if (!confirm(`Are you sure you want to delete the stored API key for ${selectedProvider.name}?`)) return;
+    setSavingKey(true);
+    try {
+      await api.settings.providers.delete(selectedProvider.name);
+      const p = await api.providers.list();
+      setProviders(p.modelProviders);
+      setSelectedProvider(p.modelProviders.find(x => x.name === selectedProvider.name) || null);
+      setInputKey('');
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -106,18 +144,76 @@ export default function ToolsPage() {
         {/* Model Providers Status */}
         <div className="card p-5">
           <div className="font-medium text-gray-100 mb-3">Model Provider Status</div>
+          <p className="text-xs text-gray-400 mb-3">Click on a provider below to manage its securely stored API credentials.</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {providers.map((p) => (
-              <div key={p.name} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm
-                ${p.configured ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-gray-800/50 border-gray-700/50'}`}>
+              <div 
+                key={p.name} 
+                onClick={() => {
+                  setSelectedProvider(p);
+                  setInputKey('');
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer transition-all
+                  ${selectedProvider?.name === p.name 
+                    ? 'border-violet-500 bg-violet-950/10' 
+                    : p.configured 
+                      ? 'bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-500/40' 
+                      : 'bg-gray-800/50 border-gray-700/50 hover:border-gray-600'
+                  }`}
+              >
                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.configured ? 'bg-emerald-400' : 'bg-gray-600'}`} />
-                <span className={`font-medium ${p.configured ? 'text-emerald-400' : 'text-gray-500'}`}>{p.name}</span>
+                <span className={`font-medium capitalize ${p.configured ? 'text-emerald-400' : 'text-gray-400'}`}>{p.name}</span>
                 {!p.configured && <span className="text-[10px] text-gray-600 ml-auto">not configured</span>}
               </div>
             ))}
           </div>
+
+          {selectedProvider && (
+            <div className="mt-4 p-4 rounded-lg bg-gray-900/60 border border-gray-800/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-200 flex items-center gap-1.5">
+                  🔑 Credentials for <strong className="text-violet-400 capitalize">{selectedProvider.name}</strong>
+                </span>
+                <button onClick={() => setSelectedProvider(null)} className="text-xs text-gray-500 hover:text-gray-400">✕ Close</button>
+              </div>
+
+              {['openai', 'anthropic', 'gemini'].includes(selectedProvider.name) ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-400 leading-normal">
+                    {selectedProvider.configured ? (
+                      <>This provider is currently <strong className="text-emerald-400">configured</strong>. You can update the API key below, or remove it entirely to fall back to environment variables.</>
+                    ) : (
+                      <>Enter your API key below. Stored API keys are encrypted with AES-256 and saved securely in the database.</>
+                    )}
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      placeholder={selectedProvider.configured ? "••••••••••••••••" : `Enter ${selectedProvider.name} API key`}
+                      className="input flex-1 py-1.5 text-sm"
+                      value={inputKey}
+                      onChange={(e) => setInputKey(e.target.value)}
+                    />
+                    <button onClick={handleSaveApiKey} disabled={savingKey || !inputKey} className="btn-primary py-1.5 text-xs px-3">
+                      {savingKey ? 'Saving...' : 'Save Key'}
+                    </button>
+                    {selectedProvider.configured && (
+                      <button onClick={handleDeleteApiKey} disabled={savingKey} className="btn-secondary border-red-500/30 text-red-400 hover:bg-red-950/20 py-1.5 text-xs px-3">
+                        Delete Key
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 italic leading-normal">
+                  Credentials for this provider must be configured using environment variables in your <code className="bg-gray-850 px-1 rounded">backend/.env</code> file.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="text-xs text-gray-500 mt-3">
-            Configure credentials in <code className="bg-gray-800 px-1 rounded">backend/.env</code> to enable providers.
+            Configure fallback credentials in <code className="bg-gray-800 px-1 rounded">backend/.env</code> to enable providers.
           </div>
         </div>
 

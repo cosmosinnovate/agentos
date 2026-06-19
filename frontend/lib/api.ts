@@ -86,6 +86,10 @@ export const api = {
           method: 'POST',
           body: JSON.stringify({ apiKey }),
         }),
+      delete: (name: string) =>
+        request<{ success: boolean }>(`/settings/providers/${name}`, {
+          method: 'DELETE',
+        }),
     },
   },
 };
