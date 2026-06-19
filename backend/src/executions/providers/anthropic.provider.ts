@@ -1,12 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IModelProvider, ModelRequest, ModelResponse } from './model-provider.interface';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class AnthropicModelProvider implements IModelProvider {
   readonly providerName = 'anthropic';
   readonly supportedModels = [
     'claude-3-5-sonnet-20241022',
+    'claude-3-5-sonnet-20240620',
     'claude-3-5-haiku-20241022',
     'claude-3-opus-20240229',
     'claude-3-sonnet-20240229',
@@ -14,14 +16,21 @@ export class AnthropicModelProvider implements IModelProvider {
   ];
   private readonly logger = new Logger(AnthropicModelProvider.name);
 
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    private settingsService: SettingsService,
+  ) {}
 
-  isConfigured(): boolean {
-    return !!this.configService.get('ANTHROPIC_API_KEY');
+  async isConfigured(): Promise<boolean> {
+    const dbKey = await this.settingsService.getApiKey(this.providerName);
+    return !!dbKey || !!this.configService.get('ANTHROPIC_API_KEY');
   }
 
   async generate(request: ModelRequest): Promise<ModelResponse> {
-    const apiKey = this.configService.get('ANTHROPIC_API_KEY');
+    let apiKey = await this.settingsService.getApiKey(this.providerName);
+    if (!apiKey) {
+      apiKey = this.configService.get('ANTHROPIC_API_KEY');
+    }
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
 
     const { default: Anthropic } = await import('@anthropic-ai/sdk').catch(() => {

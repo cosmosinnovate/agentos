@@ -5,6 +5,8 @@ import { AgentsModule } from './agents/agents.module';
 import { DeploymentsModule } from './deployments/deployments.module';
 import { ToolsModule } from './tools/tools.module';
 import { ExecutionsModule } from './executions/executions.module';
+import { SettingsModule } from './settings/settings.module';
+import { ProviderConfig } from './settings/entities/provider-config.entity';
 import { Agent } from './agents/entities/agent.entity';
 import { AgentVersion } from './agents/entities/agent-version.entity';
 import { AgentDeployment } from './deployments/entities/agent-deployment.entity';
@@ -27,7 +29,7 @@ import { Execution } from './executions/entities/execution.entity';
         username: configService.get('DATABASE_USER', 'agentos'),
         password: configService.get('DATABASE_PASSWORD', 'agentos_secret'),
         database: configService.get('DATABASE_NAME', 'agentos'),
-        entities: [Agent, AgentVersion, AgentDeployment, Tool, AgentTool, Execution],
+        entities: [Agent, AgentVersion, AgentDeployment, Tool, AgentTool, Execution, ProviderConfig],
         synchronize: true, // Auto-creates tables in dev
         logging: configService.get('NODE_ENV') === 'development',
       }),
@@ -37,6 +39,7 @@ import { Execution } from './executions/entities/execution.entity';
     DeploymentsModule,
     ToolsModule,
     ExecutionsModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

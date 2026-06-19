@@ -39,7 +39,7 @@ export class ExecutionsService {
     const tools: string[] = definition.spec?.tools || [];
 
     // Resolve model provider from YAML (auto-falls back to mock if not configured)
-    const modelProvider = this.modelProviderFactory.getProvider(definition);
+    const modelProvider = await this.modelProviderFactory.getProvider(definition);
 
     // Resolve tools details from database
     const toolDetails = await Promise.all(

@@ -77,6 +77,17 @@ export const api = {
   providers: {
     list: () => request<{ modelProviders: ProviderInfo[] }>('/providers'),
   },
+
+  settings: {
+    providers: {
+      list: () => request<{ configured: string[] }>('/settings/providers'),
+      set: (name: string, apiKey: string) =>
+        request<{ success: boolean }>(`/settings/providers/${name}`, {
+          method: 'POST',
+          body: JSON.stringify({ apiKey }),
+        }),
+    },
+  },
 };
 
 // ─── Types ───────────────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import YAML from 'yaml';
 
 const YAML_TEMPLATE = `apiVersion: agentos/v1
 kind: Agent
@@ -38,11 +39,17 @@ export default function NewAgentForm() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [owner, setOwner] = useState('');
-  const [definition, setDefinition] = useState(YAML_TEMPLATE);
+  const [definition, setDefinition] = useState('');
   const [changelog, setChangelog] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [agentId, setAgentId] = useState<string | null>(editId);
+
+  // API Key Settings
+  const [configuredProviders, setConfiguredProviders] = useState<string[]>([]);
+  const [missingApiKey, setMissingApiKey] = useState('');
+  const [inputApiKey, setInputApiKey] = useState('');
+  const [savingApiKey, setSavingApiKey] = useState(false);
 
   useEffect(() => {
     if (editId) {
@@ -52,8 +59,55 @@ export default function NewAgentForm() {
         setOwner(a.owner || '');
         setStep('definition'); // Go straight to definition tab when editing
       });
+
+      api.agents.versions.list(editId).then((versions) => {
+        if (versions.length > 0) {
+          const latestVersion = versions[0];
+          try {
+            const yamlStr = YAML.stringify(latestVersion.definition);
+            setDefinition(yamlStr);
+          } catch (err) {
+            console.error('Failed to stringify definition JSON to YAML', err);
+          }
+        }
+      }).catch(() => {});
     }
+    
+    // Fetch configured providers
+    api.settings.providers.list().then((res) => {
+      setConfiguredProviders(res.configured);
+    }).catch(() => {});
   }, [editId]);
+
+  // Check YAML for provider
+  useEffect(() => {
+    if (step === 'definition') {
+      const match = definition.match(/provider:\s*([a-zA-Z0-9-]+)/);
+      if (match && match[1]) {
+        const provider = match[1];
+        if (['openai', 'anthropic', 'gemini'].includes(provider) && !configuredProviders.includes(provider)) {
+          setMissingApiKey(provider);
+        } else {
+          setMissingApiKey('');
+        }
+      }
+    }
+  }, [definition, step, configuredProviders]);
+
+  const handleSaveApiKey = async () => {
+    if (!inputApiKey) return;
+    setSavingApiKey(true);
+    try {
+      await api.settings.providers.set(missingApiKey, inputApiKey);
+      setConfiguredProviders((prev) => [...prev, missingApiKey]);
+      setMissingApiKey('');
+      setInputApiKey('');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
 
   const handleCreateAgent = async () => {
     if (!name.trim()) { setError('Agent name is required'); return; }
@@ -139,6 +193,9 @@ export default function NewAgentForm() {
                 onChange={(e) => setOwner(e.target.value)} />
             </div>
             <div className="flex gap-3 pt-2">
+              <button onClick={() => router.push('/agents')} className="btn-secondary">
+                Cancel
+              </button>
               <button onClick={handleCreateAgent} disabled={saving || !name} className="btn-primary">
                 {saving ? 'Creating…' : 'Continue →'}
               </button>
@@ -164,15 +221,53 @@ export default function NewAgentForm() {
               </div>
             </div>
 
+            <details className="card border-gray-800 bg-gray-950/20 group">
+              <summary className="px-4 py-3 flex items-center justify-between cursor-pointer select-none text-sm font-medium text-gray-400 hover:text-gray-200">
+                <span>💡 View YAML Configuration Reference</span>
+                <svg className="w-4 h-4 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              <div className="p-4 border-t border-gray-800/60 bg-gray-950/40">
+                <pre className="text-xs text-gray-400 font-mono overflow-x-auto select-all leading-normal">
+                  {YAML_TEMPLATE}
+                </pre>
+              </div>
+            </details>
+
             <div className="card p-4 bg-gray-900/50 border-gray-800/50">
               <div className="text-xs text-gray-400 leading-relaxed">
                 <span className="font-semibold text-gray-300">Model providers:</span> mock · openai · anthropic · vertex · bedrock · azure-openai
                 <br />
                 <span className="font-semibold text-gray-300">Deployment targets:</span> local · gcp · aws · azure
                 <br />
-                Configure credentials in <code className="bg-gray-800 px-1 rounded">backend/.env</code> to use real providers.
+                Configure credentials in <code className="bg-gray-800 px-1 rounded">backend/.env</code> or securely input them below to use real providers.
               </div>
             </div>
+
+            {missingApiKey && (
+              <div className="card p-4 bg-violet-950/20 border-violet-800/50 space-y-3">
+                <div className="flex items-center gap-2 text-violet-300 font-medium text-sm">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                  Setup {missingApiKey} API Key
+                </div>
+                <p className="text-xs text-gray-400">
+                  You selected <strong>{missingApiKey}</strong> as the provider, but no API key is configured. Please provide your API key. It will be encrypted and saved securely.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    placeholder={`Enter ${missingApiKey} API key`}
+                    className="input flex-1"
+                    value={inputApiKey}
+                    onChange={(e) => setInputApiKey(e.target.value)}
+                  />
+                  <button onClick={handleSaveApiKey} disabled={savingApiKey || !inputApiKey} className="btn-secondary">
+                    {savingApiKey ? 'Saving...' : 'Save Key'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Changelog (optional)</label>
@@ -182,7 +277,13 @@ export default function NewAgentForm() {
 
             <div className="flex gap-3">
               {!editId && <button onClick={() => setStep('info')} className="btn-secondary">← Back</button>}
-              <button onClick={handleSaveDefinition} disabled={saving || !definition.trim()} className="btn-primary">
+              <button 
+                onClick={() => router.push(editId || agentId ? `/agents/${editId || agentId}` : '/agents')} 
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button onClick={handleSaveDefinition} disabled={saving || !!missingApiKey || !definition.trim()} className="btn-primary">
                 {saving ? 'Saving…' : editId ? 'Save New Version' : 'Save & View Agent →'}
               </button>
             </div>

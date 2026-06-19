@@ -38,10 +38,13 @@ services:
       # Add your real provider credentials below:
       # OPENAI_API_KEY: ""
       # ANTHROPIC_API_KEY: ""
+      # GEMINI_API_KEY: ""
       # GCP_PROJECT_ID: ""
       # AWS_ACCESS_KEY_ID: ""
       # AWS_SECRET_ACCESS_KEY: ""
       # AWS_REGION: "us-east-1"
+      # Settings Encryption Key (must be 32 bytes for AES-256)
+      ENCRYPTION_KEY: "super_secret_encryption_key_change_me"
     depends_on:
       postgres:
         condition: service_healthy

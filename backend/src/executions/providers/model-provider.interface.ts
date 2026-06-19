@@ -21,5 +21,5 @@ export interface IModelProvider {
   readonly providerName: string;
   readonly supportedModels: string[];
   generate(request: ModelRequest): Promise<ModelResponse>;
-  isConfigured(): boolean;
+  isConfigured(): boolean | Promise<boolean>;
 }

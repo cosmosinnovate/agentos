@@ -13,12 +13,15 @@ import { VertexModelProvider } from './providers/vertex.provider';
 import { BedrockModelProvider } from './providers/bedrock.provider';
 import { AzureOpenAiModelProvider } from './providers/azure-openai.provider';
 import { OllamaModelProvider } from './providers/ollama.provider';
+import { GeminiModelProvider } from './providers/gemini.provider';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Execution]),
     forwardRef(() => AgentsModule),
     ToolsModule,
+    SettingsModule,
   ],
   controllers: [ExecutionsController],
   providers: [
@@ -31,6 +34,7 @@ import { OllamaModelProvider } from './providers/ollama.provider';
     BedrockModelProvider,
     AzureOpenAiModelProvider,
     OllamaModelProvider,
+    GeminiModelProvider,
   ],
   exports: [ExecutionsService, ModelProviderFactory],
 })

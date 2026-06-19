@@ -7,6 +7,7 @@ import { VertexModelProvider } from './vertex.provider';
 import { BedrockModelProvider } from './bedrock.provider';
 import { AzureOpenAiModelProvider } from './azure-openai.provider';
 import { OllamaModelProvider } from './ollama.provider';
+import { GeminiModelProvider } from './gemini.provider';
 
 @Injectable()
 export class ModelProviderFactory {
@@ -20,6 +21,7 @@ export class ModelProviderFactory {
     private bedrockProvider: BedrockModelProvider,
     private azureOpenAiProvider: AzureOpenAiModelProvider,
     private ollamaProvider: OllamaModelProvider,
+    private geminiProvider: GeminiModelProvider,
   ) {}
 
   private getProviderMap(): Map<string, IModelProvider> {
@@ -32,6 +34,7 @@ export class ModelProviderFactory {
         ['bedrock', this.bedrockProvider],
         ['azure-openai', this.azureOpenAiProvider],
         ['ollama', this.ollamaProvider],
+        ['gemini', this.geminiProvider],
       ]);
     }
     return this.providers;
@@ -47,7 +50,7 @@ export class ModelProviderFactory {
    *       provider: openai    # openai | anthropic | vertex | bedrock | azure-openai | mock
    *       name: gpt-4o
    */
-  getProvider(definition: Record<string, any>): IModelProvider {
+  async getProvider(definition: Record<string, any>): Promise<IModelProvider> {
     const providerName = definition?.spec?.model?.provider || 'mock';
     const providerMap = this.getProviderMap();
     const provider = providerMap.get(providerName);
@@ -57,7 +60,8 @@ export class ModelProviderFactory {
       return this.mockProvider;
     }
 
-    if (!provider.isConfigured()) {
+    const configured = await provider.isConfigured();
+    if (!configured) {
       console.warn(
         `Provider '${providerName}' is not configured (missing API keys). Falling back to mock. ` +
         `Configure credentials in backend/.env to use real AI.`,
@@ -68,12 +72,18 @@ export class ModelProviderFactory {
     return provider;
   }
 
-  listProviders(): Array<{ name: string; configured: boolean; models: string[] }> {
-    return Array.from(this.getProviderMap().entries()).map(([name, p]) => ({
-      name,
-      configured: p.isConfigured(),
-      models: p.supportedModels,
-    }));
+  async listProviders(): Promise<Array<{ name: string; configured: boolean; models: string[] }>> {
+    const providers = Array.from(this.getProviderMap().entries());
+    const results = [];
+    for (const [name, p] of providers) {
+      const configured = await p.isConfigured();
+      results.push({
+        name,
+        configured: !!configured,
+        models: p.supportedModels,
+      });
+    }
+    return results;
   }
 
   estimateCost(provider: string, model: string, tokensPrompt: number, tokensCompletion: number): number {

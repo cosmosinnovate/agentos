@@ -28,9 +28,9 @@ export class ExecutionsController {
 
   @Get('providers')
   @ApiOperation({ summary: 'List all available model and deployment providers with config status' })
-  listProviders() {
+  async listProviders() {
     return {
-      modelProviders: this.executionsService.listAvailableProviders(),
+      modelProviders: await this.executionsService.listAvailableProviders(),
     };
   }
 }
