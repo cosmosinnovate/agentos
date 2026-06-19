@@ -74,10 +74,19 @@ export class ExecutionsService {
       // Invoke model provider with full chat history (with prompt sandwiching on loop > 1)
       const messagesToSend = [...messages];
       if (loopCount > 1) {
-        messagesToSend.push({
-          role: 'system',
-          content: 'IMPORTANT: Do not thank the user, acknowledge the tool output, or say "Thank you for the tool output". Present the final answer directly and concisely.',
-        });
+        const lastMsg = messagesToSend[messagesToSend.length - 1];
+        if (lastMsg && lastMsg.role === 'user') {
+          // Deep copy the last message so we don't modify the original history array
+          messagesToSend[messagesToSend.length - 1] = { 
+            ...lastMsg, 
+            content: lastMsg.content + '\n\nNote: Please provide only the final answer to the user. Do not output any thinking process, internal conversational filler, or tool JSON blocks.' 
+          };
+        } else {
+          messagesToSend.push({
+            role: 'system',
+            content: 'Note: Please provide only the final answer to the user. Do not output any thinking process, internal conversational filler, or tool JSON blocks.',
+          });
+        }
       }
 
       const modelResponse = await modelProvider.generate({
@@ -188,7 +197,7 @@ export class ExecutionsService {
           // Feed tool execution output back to LLM
           messages.push({
             role: 'user',
-            content: `[Tool Output: ${tool.name}]\n${toolResultText}\n\nPresent the final response directly to the user based on the above tool output. Do not thank the user, acknowledge the tool output, or use conversational filler; simply present the answer directly.`,
+            content: `Tool '${tool.name}' returned:\n${toolResultText}\n\nPlease provide the final answer to the user based on this result.`,
             name: tool.name,
           });
 
@@ -197,7 +206,7 @@ export class ExecutionsService {
           const toolResultText = `Error: Tool '${toolName}' is not defined or not permitted for this agent.`;
           messages.push({
             role: 'user',
-            content: `[Tool Output: ${toolName}] ${toolResultText}`,
+            content: `Tool '${toolName}' returned: ${toolResultText}`,
             name: toolName,
           });
 

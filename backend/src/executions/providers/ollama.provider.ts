@@ -42,7 +42,7 @@ export class OllamaModelProvider implements IModelProvider {
           messages,
           stream: false,
           options: {
-            temperature: request.temperature ?? 0.7,
+            temperature: request.temperature ?? 0.0,
             num_predict: request.maxTokens,
           },
         }),
