@@ -5,7 +5,7 @@
    - Created a user guide in `docs/user_guide.md`.
    - Corrected Mermaid Gantt syntax issues inside `docs/architecture.md`.
    - Created `provisioning_architecture.md` to visualize the deployment and provisioning flow.
-   - Documented the example agent orchestrator python script (`examples/ollama-multi-agent/run_demo.py`).
+   - Refactored and documented the multi-agent orchestrator script (`examples/ollama-multi-agent/run_demo.py`) to dynamically support custom agent YAML paths, command-line arguments, and dynamic metadata extraction.
 
 2. **Frontend UI Adjustments**:
    - Added Progressive Loading status bubbles to show active sub-agents and tool calls dynamically in `PlaygroundForm.tsx`.
