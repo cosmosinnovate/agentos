@@ -19,6 +19,7 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   // Custom modal states
   const [deleteAgent, setDeleteAgent] = useState<{ id: string; name: string } | null>(null);
@@ -26,7 +27,10 @@ export default function AgentsPage() {
   const [deletingError, setDeletingError] = useState('');
 
   useEffect(() => {
-    api.agents.list().then(setAgents).finally(() => setLoading(false));
+    api.agents.list()
+      .then(setAgents)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = agents.filter(
@@ -61,6 +65,12 @@ export default function AgentsPage() {
       </div>
 
       <div className="page-content">
+        {error && (
+          <div className="bg-red-950/30 border border-red-800/50 rounded-lg px-4 py-3 text-red-400 text-sm mb-4">
+            {error}
+          </div>
+        )}
+
         <input
           className="input max-w-sm"
           placeholder="Search agents…"
