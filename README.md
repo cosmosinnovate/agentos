@@ -10,7 +10,7 @@ The repository is structured as a monorepo containing the following components:
 
 *   **[`backend/`](backend)**: A NestJS application that handles agent lifecycle configuration, execution logs, distributed span tracking, and tool orchestration.
 *   **[`frontend/`](frontend)**: A Next.js (React 19) Agent Studio dashboard featuring an interactive playground, live observability trace trees, and credential management settings.
-*   **[`examples/`](examples)**: Pre-configured agent configurations, Model Context Protocol (MCP) servers, and local LLM execution scripts.
+*   **[`examples/`](examples/README.md)**: Pre-configured agent configurations, Model Context Protocol (MCP) servers, and the [generic examples runner](examples/README.md#-the-reusable-demo-runner-run_demopy).
 
 ---
 

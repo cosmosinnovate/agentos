@@ -1,14 +1,14 @@
-# Session Summary: Developer Setup Documentation
+# Session Summary: Reusable Demo Runner & Examples Documentation
 
 ## Progress Made
-- **Created Root README:** Added a clean, modern, and comprehensive [`README.md`](file:///Users/learnwithcosmos/repos/agentos/README.md) at the project root detailing project overview, structure, prerequisites, docker-compose commands, manual local setup, credentials management, local LLMs with Ollama, and test suites.
-- **Linked Documentation in README:** Converted repository component links to repository-relative links and created a dedicated **Documentation** section inside [`README.md`](file:///Users/learnwithcosmos/repos/agentos/README.md) with clean relative links to all six documentation files in [`docs/`](file:///Users/learnwithcosmos/repos/agentos/docs):
-  - [Architecture Design](file:///Users/learnwithcosmos/repos/agentos/docs/architecture.md)
-  - [User Guide & Presentation Handout](file:///Users/learnwithcosmos/repos/agentos/docs/user_guide.md)
-  - [API Documentation](file:///Users/learnwithcosmos/repos/agentos/docs/api_documentation.md)
-  - [State and Memory Spec](file:///Users/learnwithcosmos/repos/agentos/docs/state_and_memory_spec.md)
-  - [State and Memory Design](file:///Users/learnwithcosmos/repos/agentos/docs/state_and_memory_design.md)
-  - [Moat Analysis](file:///Users/learnwithcosmos/repos/agentos/docs/moat_analysis.md)
+- **Created Generic Demo Runner:** Developed [`examples/run_demo.py`](file:///Users/learnwithcosmos/repos/agentos/examples/run_demo.py) which acts as a reusable runner for all AgentOS examples. Features include:
+  - Space-separated agent specification parsing and dynamic registration.
+  - Port-aware and description-aware MCP tool configuration parsing.
+  - Auto-detection and fallback logic for local Ollama instances (falls back to mock mode if Ollama is not active).
+  - Dynamic ID substitution within prompts and context parameters using `{agent_name}` placeholder syntax.
+  - Clean cascading cleanup using database cascade logic with the `--cleanup` CLI flag.
+- **Created Examples Guide:** Added [`examples/README.md`](file:///Users/learnwithcosmos/repos/agentos/examples/README.md) to serve as a hub pointing to the various examples and illustrating commands for single-agent (weather) and multi-agent (orchestration) runs.
+- **Updated Root Documentation:** Linked the examples component in [`README.md`](file:///Users/learnwithcosmos/repos/agentos/README.md) to the new examples documentation.
 
 ## Next Required Action
-- The developer documentation is complete. No further action is required.
+- The reusable demo script and setup guides are complete. No further action is required.
