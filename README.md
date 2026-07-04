@@ -8,16 +8,25 @@ AgentOS is a centralized control plane designed to build, version, deploy, obser
 
 The repository is structured as a monorepo containing the following components:
 
-*   **[`backend/`](file:///Users/learnwithcosmos/repos/agentos/backend)**: A NestJS application that handles agent lifecycle configuration, execution logs, distributed span tracking, and tool orchestration.
-*   **[`frontend/`](file:///Users/learnwithcosmos/repos/agentos/frontend)**: A Next.js (React 19) Agent Studio dashboard featuring an interactive playground, live observability trace trees, and credential management settings.
-*   **[`docs/`](file:///Users/learnwithcosmos/repos/agentos/docs)**: Detailed design blueprints and references, including:
-    *   [Architecture Design](file:///Users/learnwithcosmos/repos/agentos/docs/architecture.md)
-    *   [User Guide & Presentation Handout](file:///Users/learnwithcosmos/repos/agentos/docs/user_guide.md)
-    *   [API Documentation](file:///Users/learnwithcosmos/repos/agentos/docs/api_documentation.md)
-    *   [State and Memory Design Spec](file:///Users/learnwithcosmos/repos/agentos/docs/state_and_memory_spec.md)
-*   **[`examples/`](file:///Users/learnwithcosmos/repos/agentos/examples)**: Pre-configured agent configurations, Model Context Protocol (MCP) servers, and local LLM execution scripts.
+*   **[`backend/`](backend)**: A NestJS application that handles agent lifecycle configuration, execution logs, distributed span tracking, and tool orchestration.
+*   **[`frontend/`](frontend)**: A Next.js (React 19) Agent Studio dashboard featuring an interactive playground, live observability trace trees, and credential management settings.
+*   **[`examples/`](examples)**: Pre-configured agent configurations, Model Context Protocol (MCP) servers, and local LLM execution scripts.
 
 ---
+
+## 📚 Documentation
+
+Detailed design blueprints, specifications, and guides are available in the [`docs/`](docs) directory:
+
+*   **[Architecture Design](docs/architecture.md)**: System topology, component interactions, request lifecycles, and trace hierarchies.
+*   **[User Guide & Presentation Handout](docs/user_guide.md)**: Manual for operating AgentOS, simulating multi-agent delegation, and analyzing telemetry.
+*   **[API Documentation](docs/api_documentation.md)**: REST API schema reference for agent control plane resources.
+*   **[State and Memory Design Spec](docs/state_and_memory_spec.md)**: High-level requirements and specifications for persisting context/memory.
+*   **[State and Memory Design](docs/state_and_memory_design.md)**: Implementation details, design choices, and flow diagrams for database-backed agent state.
+*   **[Moat Analysis](docs/moat_analysis.md)**: Competitive advantages, security boundaries, and architectural defensibility analysis.
+
+---
+
 
 ## 🛠️ Prerequisites
 

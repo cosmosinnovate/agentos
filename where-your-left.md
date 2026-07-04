@@ -1,14 +1,14 @@
 # Session Summary: Developer Setup Documentation
 
 ## Progress Made
-- **Created Root README:** Added a clean, modern, and comprehensive [`README.md`](file:///Users/learnwithcosmos/repos/agentos/README.md) at the project root detailing:
-  - **Monorepo Directory Layout:** Highlighted the responsibilities of frontend, backend, docs, and examples.
-  - **Prerequisites:** Documented Docker, Docker Compose, Node.js, and Ollama requirements.
-  - **Docker Compose Setup:** Walked through the quickest flow to pull, build, configure, and boot the database, NestJS backend, and Next.js frontend in containers.
-  - **Local Development Setup:** Provided step-by-step commands to run PostgreSQL, NestJS, and Next.js individually outside Docker.
-  - **Credentials Integration:** Explained how to use the UI's encrypted settings manager or configure fallback environment variables.
-  - **Ollama Integration:** Noted how host-installed Ollama instances bridge automatically with containerized backends.
-  - **Testing:** Outlined scripts for executing NestJS backend unit and coverage test suites.
+- **Created Root README:** Added a clean, modern, and comprehensive [`README.md`](file:///Users/learnwithcosmos/repos/agentos/README.md) at the project root detailing project overview, structure, prerequisites, docker-compose commands, manual local setup, credentials management, local LLMs with Ollama, and test suites.
+- **Linked Documentation in README:** Converted repository component links to repository-relative links and created a dedicated **Documentation** section inside [`README.md`](file:///Users/learnwithcosmos/repos/agentos/README.md) with clean relative links to all six documentation files in [`docs/`](file:///Users/learnwithcosmos/repos/agentos/docs):
+  - [Architecture Design](file:///Users/learnwithcosmos/repos/agentos/docs/architecture.md)
+  - [User Guide & Presentation Handout](file:///Users/learnwithcosmos/repos/agentos/docs/user_guide.md)
+  - [API Documentation](file:///Users/learnwithcosmos/repos/agentos/docs/api_documentation.md)
+  - [State and Memory Spec](file:///Users/learnwithcosmos/repos/agentos/docs/state_and_memory_spec.md)
+  - [State and Memory Design](file:///Users/learnwithcosmos/repos/agentos/docs/state_and_memory_design.md)
+  - [Moat Analysis](file:///Users/learnwithcosmos/repos/agentos/docs/moat_analysis.md)
 
 ## Next Required Action
 - The developer documentation is complete. No further action is required.
